@@ -1,9 +1,8 @@
 """
 Various complex queries that have been problematic in the past.
 """
-import threading
-
 from django.db import models
+from django.db.models.functions import Now
 
 
 class DumbCategory(models.Model):
@@ -41,21 +40,15 @@ class Tag(models.Model):
 
 class Note(models.Model):
     note = models.CharField(max_length=100)
-    misc = models.CharField(max_length=10)
+    misc = models.CharField(max_length=25)
     tag = models.ForeignKey(Tag, models.SET_NULL, blank=True, null=True)
+    negate = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['note']
 
     def __str__(self):
         return self.note
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Regression for #13227 -- having an attribute that
-        # is unpicklable doesn't stop you from cloning queries
-        # that use objects of that type as an argument.
-        self.lock = threading.Lock()
 
 
 class Annotation(models.Model):
@@ -67,10 +60,16 @@ class Annotation(models.Model):
         return self.name
 
 
+class DateTimePK(models.Model):
+    date = models.DateTimeField(primary_key=True, auto_now_add=True)
+
+
 class ExtraInfo(models.Model):
     info = models.CharField(max_length=100)
     note = models.ForeignKey(Note, models.CASCADE, null=True)
     value = models.IntegerField(null=True)
+    date = models.ForeignKey(DateTimePK, models.SET_NULL, null=True)
+    filterable = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['info']
@@ -143,6 +142,8 @@ class Cover(models.Model):
 
 class Number(models.Model):
     num = models.IntegerField()
+    other_num = models.IntegerField(null=True)
+    another_num = models.IntegerField(null=True)
 
     def __str__(self):
         return str(self.num)
@@ -379,7 +380,7 @@ class Node(models.Model):
     parent = models.ForeignKey("self", models.SET_NULL, to_field="num", null=True)
 
     def __str__(self):
-        return "%s" % self.num
+        return str(self.num)
 
 # Bug #12252
 
@@ -407,7 +408,7 @@ class ChildObjectA(ObjectA):
 class ObjectB(models.Model):
     name = models.CharField(max_length=50)
     objecta = models.ForeignKey(ObjectA, models.CASCADE)
-    num = models.PositiveSmallIntegerField()
+    num = models.PositiveIntegerField()
 
     def __str__(self):
         return self.name
@@ -429,14 +430,14 @@ class ObjectC(models.Model):
 
 
 class SimpleCategory(models.Model):
-    name = models.CharField(max_length=15)
+    name = models.CharField(max_length=25)
 
     def __str__(self):
         return self.name
 
 
 class SpecialCategory(SimpleCategory):
-    special_name = models.CharField(max_length=15)
+    special_name = models.CharField(max_length=35)
 
     def __str__(self):
         return self.name + " " + self.special_name
@@ -591,12 +592,13 @@ class MyObject(models.Model):
 
 class Order(models.Model):
     id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=12, null=True, default='')
 
     class Meta:
         ordering = ('pk',)
 
     def __str__(self):
-        return '%s' % self.pk
+        return str(self.pk)
 
 
 class OrderItem(models.Model):
@@ -607,7 +609,7 @@ class OrderItem(models.Model):
         ordering = ('pk',)
 
     def __str__(self):
-        return '%s' % self.pk
+        return str(self.pk)
 
 
 class BaseUser(models.Model):
@@ -676,7 +678,7 @@ class Student(models.Model):
 
 class Classroom(models.Model):
     name = models.CharField(max_length=20)
-    has_blackboard = models.NullBooleanField()
+    has_blackboard = models.BooleanField(null=True)
     school = models.ForeignKey(School, models.CASCADE)
     students = models.ManyToManyField(Student, related_name='classroom')
 
@@ -718,3 +720,31 @@ class RelatedIndividual(models.Model):
 
     class Meta:
         db_table = 'RelatedIndividual'
+
+
+class CustomDbColumn(models.Model):
+    custom_column = models.IntegerField(db_column='custom_name', null=True)
+    ip_address = models.GenericIPAddressField(null=True)
+
+
+class CreatedField(models.DateTimeField):
+    db_returning = True
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('default', Now)
+        super().__init__(*args, **kwargs)
+
+
+class ReturningModel(models.Model):
+    created = CreatedField(editable=False)
+
+
+class NonIntegerPKReturningModel(models.Model):
+    created = CreatedField(editable=False, primary_key=True)
+
+
+class JSONFieldNullable(models.Model):
+    json_field = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        required_db_features = {'supports_json_field'}

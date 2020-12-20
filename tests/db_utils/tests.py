@@ -2,16 +2,27 @@
 import unittest
 
 from django.core.exceptions import ImproperlyConfigured
-from django.db import DEFAULT_DB_ALIAS, connection
-from django.db.utils import ConnectionHandler, ProgrammingError, load_backend
+from django.db import DEFAULT_DB_ALIAS, ProgrammingError, connection
+from django.db.utils import ConnectionHandler, load_backend
 from django.test import SimpleTestCase, TestCase
+from django.utils.connection import ConnectionDoesNotExist
 
 
 class ConnectionHandlerTests(SimpleTestCase):
 
     def test_connection_handler_no_databases(self):
-        """Empty DATABASES setting defaults to the dummy backend."""
-        DATABASES = {}
+        """
+        Empty DATABASES and empty 'default' settings default to the dummy
+        backend.
+        """
+        for DATABASES in (
+            {},  # Empty DATABASES setting.
+            {'default': {}},  # Empty 'default' database.
+        ):
+            with self.subTest(DATABASES=DATABASES):
+                self.assertImproperlyConfigured(DATABASES)
+
+    def assertImproperlyConfigured(self, DATABASES):
         conns = ConnectionHandler(DATABASES)
         self.assertEqual(conns[DEFAULT_DB_ALIAS].settings_dict['ENGINE'], 'django.db.backends.dummy')
         msg = (
@@ -20,6 +31,37 @@ class ConnectionHandlerTests(SimpleTestCase):
         )
         with self.assertRaisesMessage(ImproperlyConfigured, msg):
             conns[DEFAULT_DB_ALIAS].ensure_connection()
+
+    def test_no_default_database(self):
+        DATABASES = {'other': {}}
+        conns = ConnectionHandler(DATABASES)
+        msg = "You must define a 'default' database."
+        with self.assertRaisesMessage(ImproperlyConfigured, msg):
+            conns['other'].ensure_connection()
+
+    def test_nonexistent_alias(self):
+        msg = "The connection 'nonexistent' doesn't exist."
+        conns = ConnectionHandler({
+            DEFAULT_DB_ALIAS: {'ENGINE': 'django.db.backends.dummy'},
+        })
+        with self.assertRaisesMessage(ConnectionDoesNotExist, msg):
+            conns['nonexistent']
+
+    def test_ensure_defaults_nonexistent_alias(self):
+        msg = "The connection 'nonexistent' doesn't exist."
+        conns = ConnectionHandler({
+            DEFAULT_DB_ALIAS: {'ENGINE': 'django.db.backends.dummy'},
+        })
+        with self.assertRaisesMessage(ConnectionDoesNotExist, msg):
+            conns.ensure_defaults('nonexistent')
+
+    def test_prepare_test_settings_nonexistent_alias(self):
+        msg = "The connection 'nonexistent' doesn't exist."
+        conns = ConnectionHandler({
+            DEFAULT_DB_ALIAS: {'ENGINE': 'django.db.backends.dummy'},
+        })
+        with self.assertRaisesMessage(ConnectionDoesNotExist, msg):
+            conns.prepare_test_settings('nonexistent')
 
 
 class DatabaseErrorWrapperTests(TestCase):
@@ -40,8 +82,9 @@ class LoadBackendTests(SimpleTestCase):
 
     def test_load_backend_invalid_name(self):
         msg = (
-            "'foo' isn't an available database backend.\n"
-            "Try using 'django.db.backends.XXX', where XXX is one of:\n"
+            "'foo' isn't an available database backend or couldn't be "
+            "imported. Check the above exception. To use one of the built-in "
+            "backends, use 'django.db.backends.XXX', where XXX is one of:\n"
             "    'mysql', 'oracle', 'postgresql', 'sqlite3'"
         )
         with self.assertRaisesMessage(ImproperlyConfigured, msg) as cm:

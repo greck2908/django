@@ -18,10 +18,12 @@ class OIDTests(PostgreSQLTestCase):
         self.assertTrue(all(isinstance(oid, int) for oid in oids))
 
     def test_hstore_cache(self):
+        get_hstore_oids(connection.alias)
         with self.assertNumQueries(0):
             get_hstore_oids(connection.alias)
 
     def test_citext_cache(self):
+        get_citext_oids(connection.alias)
         with self.assertNumQueries(0):
             get_citext_oids(connection.alias)
 
@@ -36,4 +38,5 @@ class OIDTests(PostgreSQLTestCase):
 
     def test_register_type_handlers_no_db(self):
         """Registering type handlers for the nodb connection does nothing."""
-        register_type_handlers(connection._nodb_connection)
+        with connection._nodb_cursor() as cursor:
+            register_type_handlers(cursor.db)

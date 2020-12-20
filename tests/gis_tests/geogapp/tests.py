@@ -2,7 +2,7 @@
 Tests for geography support in PostGIS
 """
 import os
-from unittest import skipIf, skipUnless
+from unittest import skipUnless
 
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models.functions import Area, Distance
@@ -22,7 +22,6 @@ class GeographyTest(TestCase):
         "Ensure geography features loaded properly."
         self.assertEqual(8, City.objects.count())
 
-    @skipIf(spatialite, "SpatiaLite doesn't support distance lookups with Distance objects.")
     @skipUnlessDBFeature("supports_distances_lookups", "supports_distance_geodetic")
     def test02_distance_lookup(self):
         "Testing distance lookup support on non-point geography fields."
@@ -66,11 +65,11 @@ class GeographyTest(TestCase):
         # Getting the shapefile and mapping dictionary.
         shp_path = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'data'))
         co_shp = os.path.join(shp_path, 'counties', 'counties.shp')
-        co_mapping = {'name': 'Name',
-                      'state': 'State',
-                      'mpoly': 'MULTIPOLYGON',
-                      }
-
+        co_mapping = {
+            'name': 'Name',
+            'state': 'State',
+            'mpoly': 'MULTIPOLYGON',
+        }
         # Reference county names, number of polygons, and state names.
         names = ['Bexar', 'Galveston', 'Harris', 'Honolulu', 'Pueblo']
         num_polys = [1, 2, 1, 19, 1]  # Number of polygons for each.
@@ -95,7 +94,7 @@ class GeographyFunctionTests(FuncTestMixin, TestCase):
         Cast a geography to a geometry field for an aggregate function that
         expects a geometry input.
         """
-        if not connection.ops.geography:
+        if not connection.features.supports_geography:
             self.skipTest("This test needs geography support")
         expected = (-96.8016128540039, 29.7633724212646, -95.3631439208984, 32.782058715820)
         res = City.objects.filter(
