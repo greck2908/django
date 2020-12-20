@@ -1,4 +1,4 @@
-from unittest import skipUnless
+from unittest import skipIf
 
 from django.contrib.gis.db.models import fields
 from django.contrib.gis.geos import MultiPolygon, Polygon
@@ -10,7 +10,7 @@ from django.test import (
     TransactionTestCase, skipIfDBFeature, skipUnlessDBFeature,
 )
 
-from ..utils import mysql, oracle
+from ..utils import mysql, spatialite
 
 try:
     GeometryColumns = connection.ops.geometry_columns()
@@ -63,9 +63,12 @@ class OperationTestCase(TransactionTestCase):
         self.current_state = self.apply_operations('gis', ProjectState(), operations)
 
     def assertGeometryColumnsCount(self, expected_count):
+        table_name = 'gis_neighborhood'
+        if connection.features.uppercases_column_names:
+            table_name = table_name.upper()
         self.assertEqual(
             GeometryColumns.objects.filter(**{
-                '%s__iexact' % GeometryColumns.table_name_col(): 'gis_neighborhood',
+                GeometryColumns.table_name_col(): table_name,
             }).count(),
             expected_count
         )
@@ -115,13 +118,6 @@ class OperationTests(OperationTestCase):
         # Test spatial indices when available
         if self.has_spatial_indexes:
             self.assertSpatialIndexExists('gis_neighborhood', 'path')
-
-    @skipUnless(HAS_GEOMETRY_COLUMNS, "Backend doesn't support GeometryColumns.")
-    def test_geom_col_name(self):
-        self.assertEqual(
-            GeometryColumns.geom_col_name(),
-            'column_name' if oracle else 'f_geometry_column',
-        )
 
     @skipUnlessDBFeature('supports_raster')
     def test_add_raster_field(self):
@@ -190,7 +186,8 @@ class OperationTests(OperationTestCase):
         if connection.features.supports_raster:
             self.assertSpatialIndexExists('gis_neighborhood', 'rast', raster=True)
 
-    @skipUnlessDBFeature('can_alter_geometry_field', 'supports_3d_storage')
+    @skipUnlessDBFeature("supports_3d_storage")
+    @skipIf(spatialite, "Django currently doesn't support altering Spatialite geometry fields")
     def test_alter_geom_field_dim(self):
         Neighborhood = self.current_state.apps.get_model('gis', 'Neighborhood')
         p1 = Polygon(((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)))

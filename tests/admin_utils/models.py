@@ -15,11 +15,7 @@ class Article(models.Model):
     """
     site = models.ForeignKey(Site, models.CASCADE, related_name="admin_articles")
     title = models.CharField(max_length=100)
-    hist = models.CharField(
-        max_length=100,
-        verbose_name=_('History'),
-        help_text=_('History help text'),
-    )
+    hist = models.CharField(max_length=100, verbose_name=_("History"))
     created = models.DateTimeField(null=True)
 
     def __str__(self):

@@ -1,5 +1,4 @@
-from django.core.exceptions import ValidationError
-from django.forms import URLField
+from django.forms import URLField, ValidationError
 from django.test import SimpleTestCase
 
 from . import FormFieldAssertionsMixin
@@ -154,7 +153,6 @@ class URLFieldTest(FormFieldAssertionsMixin, SimpleTestCase):
 
     def test_urlfield_strip_on_none_value(self):
         f = URLField(required=False, empty_value=None)
-        self.assertIsNone(f.clean(''))
         self.assertIsNone(f.clean(None))
 
     def test_urlfield_unable_to_set_strip_kwarg(self):

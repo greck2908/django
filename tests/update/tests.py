@@ -1,23 +1,17 @@
-import unittest
-
 from django.core.exceptions import FieldError
-from django.db import IntegrityError, connection, transaction
-from django.db.models import CharField, Count, F, IntegerField, Max
-from django.db.models.functions import Abs, Concat, Lower
+from django.db.models import Count, F, Max
 from django.test import TestCase
-from django.test.utils import register_lookup
 
-from .models import A, B, Bar, D, DataPoint, Foo, RelatedPoint, UniqueNumber
+from .models import A, B, Bar, D, DataPoint, Foo, RelatedPoint
 
 
 class SimpleTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.a1 = A.objects.create()
-        cls.a2 = A.objects.create()
+    def setUp(self):
+        self.a1 = A.objects.create()
+        self.a2 = A.objects.create()
         for x in range(20):
-            B.objects.create(a=cls.a1)
-            D.objects.create(a=cls.a1)
+            B.objects.create(a=self.a1)
+            D.objects.create(a=self.a1)
 
     def test_nonempty_update(self):
         """
@@ -68,12 +62,11 @@ class SimpleTest(TestCase):
 
 class AdvancedTests(TestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.d0 = DataPoint.objects.create(name="d0", value="apple")
-        cls.d2 = DataPoint.objects.create(name="d2", value="banana")
-        cls.d3 = DataPoint.objects.create(name="d3", value="banana")
-        cls.r1 = RelatedPoint.objects.create(name="r1", data=cls.d3)
+    def setUp(self):
+        self.d0 = DataPoint.objects.create(name="d0", value="apple")
+        self.d2 = DataPoint.objects.create(name="d2", value="banana")
+        self.d3 = DataPoint.objects.create(name="d3", value="banana")
+        self.r1 = RelatedPoint.objects.create(name="r1", data=self.d3)
 
     def test_update(self):
         """
@@ -90,7 +83,8 @@ class AdvancedTests(TestCase):
         """
         We can update multiple objects at once.
         """
-        resp = DataPoint.objects.filter(value='banana').update(value='pineapple')
+        resp = DataPoint.objects.filter(value="banana").update(
+            value="pineapple")
         self.assertEqual(resp, 2)
         self.assertEqual(DataPoint.objects.get(name="d2").value, 'pineapple')
 
@@ -155,13 +149,6 @@ class AdvancedTests(TestCase):
         with self.assertRaisesMessage(FieldError, msg):
             Bar.objects.update(m2m_foo='whatever')
 
-    def test_update_transformed_field(self):
-        A.objects.create(x=5)
-        A.objects.create(x=-6)
-        with register_lookup(IntegerField, Abs):
-            A.objects.update(x=F('x__abs'))
-            self.assertCountEqual(A.objects.values_list('x', flat=True), [5, 6])
-
     def test_update_annotated_queryset(self):
         """
         Update of a queryset that's been annotated.
@@ -177,11 +164,7 @@ class AdvancedTests(TestCase):
         self.assertEqual(qs.update(another_value=F('alias')), 3)
         # Update where aggregation annotation is used in update parameters
         qs = DataPoint.objects.annotate(max=Max('value'))
-        msg = (
-            'Aggregate functions are not allowed in this query '
-            '(another_value=Max(Col(update_datapoint, update.DataPoint.value))).'
-        )
-        with self.assertRaisesMessage(FieldError, msg):
+        with self.assertRaisesMessage(FieldError, 'Aggregate functions are not allowed in this query'):
             qs.update(another_value=F('max'))
 
     def test_update_annotated_multi_table_queryset(self):
@@ -194,58 +177,12 @@ class AdvancedTests(TestCase):
         # Update where annotation is used for filtering
         qs = DataPoint.objects.annotate(related_count=Count('relatedpoint'))
         self.assertEqual(qs.filter(related_count=1).update(value='Foo'), 1)
+        # Update where annotation is used in update parameters
+        # #26539 - This isn't forbidden but also doesn't generate proper SQL
+        # qs = RelatedPoint.objects.annotate(data_name=F('data__name'))
+        # updated = qs.update(name=F('data_name'))
+        # self.assertEqual(updated, 1)
         # Update where aggregation annotation is used in update parameters
         qs = RelatedPoint.objects.annotate(max=Max('data__value'))
-        msg = 'Joined field references are not permitted in this query'
-        with self.assertRaisesMessage(FieldError, msg):
+        with self.assertRaisesMessage(FieldError, 'Aggregate functions are not allowed in this query'):
             qs.update(name=F('max'))
-
-    def test_update_with_joined_field_annotation(self):
-        msg = 'Joined field references are not permitted in this query'
-        with register_lookup(CharField, Lower):
-            for annotation in (
-                F('data__name'),
-                F('data__name__lower'),
-                Lower('data__name'),
-                Concat('data__name', 'data__value'),
-            ):
-                with self.subTest(annotation=annotation):
-                    with self.assertRaisesMessage(FieldError, msg):
-                        RelatedPoint.objects.annotate(
-                            new_name=annotation,
-                        ).update(name=F('new_name'))
-
-
-@unittest.skipUnless(
-    connection.vendor == 'mysql',
-    'UPDATE...ORDER BY syntax is supported on MySQL/MariaDB',
-)
-class MySQLUpdateOrderByTest(TestCase):
-    """Update field with a unique constraint using an ordered queryset."""
-    @classmethod
-    def setUpTestData(cls):
-        UniqueNumber.objects.create(number=1)
-        UniqueNumber.objects.create(number=2)
-
-    def test_order_by_update_on_unique_constraint(self):
-        tests = [
-            ('-number', 'id'),
-            (F('number').desc(), 'id'),
-            (F('number') * -1, 'id'),
-        ]
-        for ordering in tests:
-            with self.subTest(ordering=ordering), transaction.atomic():
-                updated = UniqueNumber.objects.order_by(*ordering).update(
-                    number=F('number') + 1,
-                )
-                self.assertEqual(updated, 2)
-
-    def test_order_by_update_on_unique_constraint_annotation(self):
-        # Ordering by annotations is omitted because they cannot be resolved in
-        # .update().
-        with self.assertRaises(IntegrityError):
-            UniqueNumber.objects.annotate(
-                number_inverse=F('number').desc(),
-            ).order_by('number_inverse').update(
-                number=F('number') + 1,
-            )

@@ -7,7 +7,6 @@ from django.core.mail import mail_managers
 from django.http import HttpResponsePermanentRedirect
 from django.urls import is_valid_path
 from django.utils.deprecation import MiddlewareMixin
-from django.utils.http import escape_leading_slashes
 
 
 class CommonMiddleware(MiddlewareMixin):
@@ -38,10 +37,9 @@ class CommonMiddleware(MiddlewareMixin):
         """
 
         # Check for denied User-Agents
-        user_agent = request.META.get('HTTP_USER_AGENT')
-        if user_agent is not None:
+        if 'HTTP_USER_AGENT' in request.META:
             for user_agent_regex in settings.DISALLOWED_USER_AGENTS:
-                if user_agent_regex.search(user_agent):
+                if user_agent_regex.search(request.META['HTTP_USER_AGENT']):
                     raise PermissionDenied('Forbidden user agent')
 
         # Check for a redirect based on settings.PREPEND_WWW
@@ -67,11 +65,10 @@ class CommonMiddleware(MiddlewareMixin):
         """
         if settings.APPEND_SLASH and not request.path_info.endswith('/'):
             urlconf = getattr(request, 'urlconf', None)
-            if not is_valid_path(request.path_info, urlconf):
-                match = is_valid_path('%s/' % request.path_info, urlconf)
-                if match:
-                    view = match.func
-                    return getattr(view, 'should_append_slash', True)
+            return (
+                not is_valid_path(request.path_info, urlconf) and
+                is_valid_path('%s/' % request.path_info, urlconf)
+            )
         return False
 
     def get_full_path_with_slash(self, request):
@@ -82,8 +79,6 @@ class CommonMiddleware(MiddlewareMixin):
         POST, PUT, or PATCH.
         """
         new_path = request.get_full_path(force_append_slash=True)
-        # Prevent construction of scheme relative urls.
-        new_path = escape_leading_slashes(new_path)
         if settings.DEBUG and request.method in ('POST', 'PUT', 'PATCH'):
             raise RuntimeError(
                 "You called this URL via %(method)s, but the URL doesn't end "
@@ -104,13 +99,14 @@ class CommonMiddleware(MiddlewareMixin):
         """
         # If the given URL is "Not Found", then check if we should redirect to
         # a path with a slash appended.
-        if response.status_code == 404 and self.should_redirect_with_slash(request):
-            return self.response_redirect_class(self.get_full_path_with_slash(request))
+        if response.status_code == 404:
+            if self.should_redirect_with_slash(request):
+                return self.response_redirect_class(self.get_full_path_with_slash(request))
 
         # Add the Content-Length header to non-streaming responses if not
         # already set.
         if not response.streaming and not response.has_header('Content-Length'):
-            response.headers['Content-Length'] = str(len(response.content))
+            response['Content-Length'] = str(len(response.content))
 
         return response
 
@@ -134,8 +130,7 @@ class BrokenLinkEmailsMiddleware(MiddlewareMixin):
                     ),
                     "Referrer: %s\nRequested URL: %s\nUser agent: %s\n"
                     "IP address: %s\n" % (referer, path, ua, ip),
-                    fail_silently=True,
-                )
+                    fail_silently=True)
         return response
 
     def is_internal_request(self, domain, referer):

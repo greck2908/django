@@ -1,6 +1,4 @@
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.forms import ChoiceField, Form
+from django.forms import ChoiceField, Form, ValidationError
 from django.test import SimpleTestCase
 
 from . import FormFieldAssertionsMixin
@@ -88,14 +86,3 @@ class ChoiceFieldTest(FormFieldAssertionsMixin, SimpleTestCase):
             '<select id="id_f" name="f" disabled><option value="J">John</option>'
             '<option value="P">Paul</option></select>'
         )
-
-    def test_choicefield_enumeration(self):
-        class FirstNames(models.TextChoices):
-            JOHN = 'J', 'John'
-            PAUL = 'P', 'Paul'
-
-        f = ChoiceField(choices=FirstNames.choices)
-        self.assertEqual(f.clean('J'), 'J')
-        msg = "'Select a valid choice. 3 is not one of the available choices.'"
-        with self.assertRaisesMessage(ValidationError, msg):
-            f.clean('3')

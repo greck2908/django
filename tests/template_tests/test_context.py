@@ -1,5 +1,3 @@
-from unittest import mock
-
 from django.http import HttpRequest
 from django.template import (
     Context, Engine, RequestContext, Template, Variable, VariableDoesNotExist,
@@ -20,7 +18,6 @@ class ContextTests(SimpleTestCase):
         self.assertEqual(c.pop(), {"a": 2})
         self.assertEqual(c["a"], 1)
         self.assertEqual(c.get("foo", 42), 42)
-        self.assertEqual(c, mock.ANY)
 
     def test_push_context_manager(self):
         c = Context({"a": 1})
@@ -216,7 +213,6 @@ class ContextTests(SimpleTestCase):
 
 
 class RequestContextTests(SimpleTestCase):
-    request_factory = RequestFactory()
 
     def test_include_only(self):
         """
@@ -228,16 +224,18 @@ class RequestContextTests(SimpleTestCase):
                 'child': '{{ var|default:"none" }}',
             }),
         ])
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         ctx = RequestContext(request, {'var': 'parent'})
         self.assertEqual(engine.from_string('{% include "child" %}').render(ctx), 'parent')
         self.assertEqual(engine.from_string('{% include "child" only %}').render(ctx), 'none')
 
     def test_stack_size(self):
-        """Optimized RequestContext construction (#7116)."""
-        request = self.request_factory.get('/')
+        """
+        #7116 -- Optimize RequetsContext construction
+        """
+        request = RequestFactory().get('/')
         ctx = RequestContext(request, {})
-        # The stack contains 4 items:
+        # The stack should now contain 3 items:
         # [builtins, supplied context, context processor, empty dict]
         self.assertEqual(len(ctx.dicts), 4)
 
@@ -247,7 +245,7 @@ class RequestContextTests(SimpleTestCase):
 
         # test comparing RequestContext to prevent problems if somebody
         # adds __eq__ in the future
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
 
         self.assertEqual(
             RequestContext(request, dict_=test_data),
@@ -256,7 +254,7 @@ class RequestContextTests(SimpleTestCase):
 
     def test_modify_context_and_render(self):
         template = Template('{{ foo }}')
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         context = RequestContext(request, {})
         context['foo'] = 'foo'
         self.assertEqual(template.render(context), 'foo')

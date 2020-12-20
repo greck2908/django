@@ -32,12 +32,10 @@ class CheckboxSelectMultipleTest(WidgetTest):
 
     def test_render_none(self):
         """
-        If the value is None, none of the options are selected, even if the
-        choices have an empty option.
+        If the value is None, none of the options are selected.
         """
-        self.check_html(self.widget(choices=(('', 'Unknown'),) + self.beatles), 'beatles', None, html=(
+        self.check_html(self.widget(choices=self.beatles), 'beatles', None, html=(
             """<ul>
-            <li><label><input type="checkbox" name="beatles" value=""> Unknown</label></li>
             <li><label><input type="checkbox" name="beatles" value="J"> John</label></li>
             <li><label><input type="checkbox" name="beatles" value="P"> Paul</label></li>
             <li><label><input type="checkbox" name="beatles" value="G"> George</label></li>
@@ -196,7 +194,7 @@ class CheckboxSelectMultipleTest(WidgetTest):
         self.assertIs(widget.value_omitted_from_data({'field': 'value'}, {}, 'field'), False)
 
     def test_label(self):
-        """
+        """"
         CheckboxSelectMultiple doesn't contain 'for="field_0"' in the <label>
         because clicking that would toggle the first checkbox.
         """

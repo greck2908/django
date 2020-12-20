@@ -3,14 +3,12 @@ from django.core.servers.basehttp import get_internal_wsgi_application
 from django.core.signals import request_started
 from django.core.wsgi import get_wsgi_application
 from django.db import close_old_connections
-from django.http import FileResponse
 from django.test import SimpleTestCase, override_settings
 from django.test.client import RequestFactory
 
 
 @override_settings(ROOT_URLCONF='wsgi.urls')
 class WSGITest(SimpleTestCase):
-    request_factory = RequestFactory()
 
     def setUp(self):
         request_started.disconnect(close_old_connections)
@@ -24,7 +22,7 @@ class WSGITest(SimpleTestCase):
         """
         application = get_wsgi_application()
 
-        environ = self.request_factory._base_environ(
+        environ = RequestFactory()._base_environ(
             PATH_INFO="/",
             CONTENT_TYPE="text/html; charset=utf-8",
             REQUEST_METHOD="GET"
@@ -52,11 +50,10 @@ class WSGITest(SimpleTestCase):
         FileResponse uses wsgi.file_wrapper.
         """
         class FileWrapper:
-            def __init__(self, filelike, block_size=None):
-                self.block_size = block_size
+            def __init__(self, filelike, blksize=8192):
                 filelike.close()
         application = get_wsgi_application()
-        environ = self.request_factory._base_environ(
+        environ = RequestFactory()._base_environ(
             PATH_INFO='/file/',
             REQUEST_METHOD='GET',
             **{'wsgi.file_wrapper': FileWrapper}
@@ -69,7 +66,6 @@ class WSGITest(SimpleTestCase):
         response = application(environ, start_response)
         self.assertEqual(response_data['status'], '200 OK')
         self.assertIsInstance(response, FileWrapper)
-        self.assertEqual(response.block_size, FileResponse.block_size)
 
 
 class GetInternalWSGIApplicationTest(SimpleTestCase):

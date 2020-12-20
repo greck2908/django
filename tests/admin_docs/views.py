@@ -13,8 +13,3 @@ def xview(request):
 class XViewClass(View):
     def get(self, request):
         return HttpResponse()
-
-
-class XViewCallableObject(View):
-    def __call__(self, request):
-        return HttpResponse()

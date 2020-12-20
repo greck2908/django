@@ -18,7 +18,6 @@ from django.db import models
 
 class Author(models.Model):
     name = models.CharField(max_length=63, null=True, blank=True)
-    editor = models.ForeignKey('self', models.CASCADE, null=True)
 
     class Meta:
         ordering = ('-pk',)
@@ -31,12 +30,10 @@ class Article(models.Model):
     pub_date = models.DateTimeField()
 
     class Meta:
-        ordering = (
-            '-pub_date',
-            models.F('headline'),
-            models.F('author__name').asc(),
-            models.OrderBy(models.F('second_author__name')),
-        )
+        ordering = ('-pub_date', 'headline')
+
+    def __str__(self):
+        return self.headline
 
 
 class OrderedByAuthorArticle(Article):
@@ -49,10 +46,6 @@ class OrderedByFArticle(Article):
     class Meta:
         proxy = True
         ordering = (models.F('author').asc(nulls_first=True), 'id')
-
-
-class ChildArticle(Article):
-    pass
 
 
 class Reference(models.Model):

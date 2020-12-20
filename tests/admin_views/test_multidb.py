@@ -1,9 +1,11 @@
 from unittest import mock
 
+from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.db import connections
 from django.test import TestCase, override_settings
-from django.urls import path, reverse
+from django.urls import reverse
 
 from .models import Book
 
@@ -21,19 +23,19 @@ site = admin.AdminSite(name='test_adminsite')
 site.register(Book)
 
 urlpatterns = [
-    path('admin/', site.urls),
+    url(r'^admin/', site.urls),
 ]
 
 
 @override_settings(ROOT_URLCONF=__name__, DATABASE_ROUTERS=['%s.Router' % __name__])
 class MultiDatabaseTests(TestCase):
-    databases = {'default', 'other'}
+    multi_db = True
 
     @classmethod
     def setUpTestData(cls):
         cls.superusers = {}
         cls.test_book_ids = {}
-        for db in cls.databases:
+        for db in connections:
             Router.target_db = db
             cls.superusers[db] = User.objects.create_superuser(
                 username='admin', password='something', email='test@test.org',
@@ -44,7 +46,7 @@ class MultiDatabaseTests(TestCase):
 
     @mock.patch('django.contrib.admin.options.transaction')
     def test_add_view(self, mock):
-        for db in self.databases:
+        for db in connections:
             with self.subTest(db=db):
                 Router.target_db = db
                 self.client.force_login(self.superusers[db])
@@ -56,7 +58,7 @@ class MultiDatabaseTests(TestCase):
 
     @mock.patch('django.contrib.admin.options.transaction')
     def test_change_view(self, mock):
-        for db in self.databases:
+        for db in connections:
             with self.subTest(db=db):
                 Router.target_db = db
                 self.client.force_login(self.superusers[db])
@@ -68,7 +70,7 @@ class MultiDatabaseTests(TestCase):
 
     @mock.patch('django.contrib.admin.options.transaction')
     def test_delete_view(self, mock):
-        for db in self.databases:
+        for db in connections:
             with self.subTest(db=db):
                 Router.target_db = db
                 self.client.force_login(self.superusers[db])

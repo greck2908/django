@@ -3,11 +3,11 @@ import shutil
 import tempfile
 
 from django import conf
-from django.test import SimpleTestCase
+from django.test import TestCase
 from django.test.utils import extend_sys_path
 
 
-class TestStartProjectSettings(SimpleTestCase):
+class TestStartProjectSettings(TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
@@ -38,7 +38,5 @@ class TestStartProjectSettings(SimpleTestCase):
             self.assertEqual(headers, [
                 b'Content-Length: 0',
                 b'Content-Type: text/html; charset=utf-8',
-                b'Referrer-Policy: same-origin',
-                b'X-Content-Type-Options: nosniff',
-                b'X-Frame-Options: DENY',
+                b'X-Frame-Options: SAMEORIGIN',
             ])

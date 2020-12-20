@@ -5,8 +5,6 @@ ORM.
 
 import copy
 
-from django.utils.hashable import make_hashable
-
 
 class Node:
     """
@@ -54,7 +52,7 @@ class Node:
         return obj
 
     def __len__(self):
-        """Return the number of children this node has."""
+        """Return the the number of children this node has."""
         return len(self.children)
 
     def __bool__(self):
@@ -73,7 +71,7 @@ class Node:
         )
 
     def __hash__(self):
-        return hash((self.__class__, self.connector, self.negated, *make_hashable(self.children)))
+        return hash((self.__class__, self.connector, self.negated) + tuple(self.children))
 
     def add(self, data, conn_type, squash=True):
         """

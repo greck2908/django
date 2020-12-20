@@ -20,22 +20,19 @@ class Article(models.Model):
     pub_date = models.DateField()
     reporter = models.ForeignKey(Reporter, models.CASCADE)
 
-    class Meta:
-        ordering = ('headline',)
-
     def __str__(self):
         return self.headline
 
-
-class Country(models.Model):
-    id = models.SmallAutoField(primary_key=True)
-    name = models.CharField(max_length=50)
+    class Meta:
+        ordering = ('headline',)
 
 
 class City(models.Model):
     id = models.BigAutoField(primary_key=True)
-    country = models.ForeignKey(Country, models.CASCADE, related_name='cities', null=True)
     name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
 
 
 class District(models.Model):
@@ -47,8 +44,8 @@ class District(models.Model):
 
 
 # If ticket #1578 ever slips back in, these models will not be able to be
-# created (the field names being lowercased versions of their opposite classes
-# is important here).
+# created (the field names being lower-cased versions of their opposite
+# classes is important here).
 class First(models.Model):
     second = models.IntegerField()
 
@@ -73,12 +70,8 @@ class Child(models.Model):
     parent = models.ForeignKey(Parent, models.CASCADE)
 
 
-class ChildNullableParent(models.Model):
-    parent = models.ForeignKey(Parent, models.CASCADE, null=True)
-
-
 class ToFieldChild(models.Model):
-    parent = models.ForeignKey(Parent, models.CASCADE, to_field='name', related_name='to_field_children')
+    parent = models.ForeignKey(Parent, models.CASCADE, to_field='name')
 
 
 # Multiple paths to the same model (#7110, #7125)

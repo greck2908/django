@@ -6,8 +6,7 @@ from django.conf import settings
 from django.contrib.admin import helpers
 from django.contrib.admin.utils import (
     NestedObjects, display_for_field, display_for_value, flatten,
-    flatten_fieldsets, help_text_for_field, label_for_field, lookup_field,
-    quote,
+    flatten_fieldsets, label_for_field, lookup_field, quote,
 )
 from django.db import DEFAULT_DB_ALIAS, models
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -23,10 +22,9 @@ class NestedObjectsTests(TestCase):
     """
     Tests for ``NestedObject`` utility collection.
     """
-    @classmethod
-    def setUpTestData(cls):
-        cls.n = NestedObjects(using=DEFAULT_DB_ALIAS)
-        cls.objs = [Count.objects.create(num=i) for i in range(5)]
+    def setUp(self):
+        self.n = NestedObjects(using=DEFAULT_DB_ALIAS)
+        self.objs = [Count.objects.create(num=i) for i in range(5)]
 
     def _check(self, target):
         self.assertEqual(self.n.nested(lambda obj: obj.num), target)
@@ -168,33 +166,11 @@ class UtilsTests(SimpleTestCase):
         expected = '<img src="%sadmin/img/icon-unknown.svg" alt="None">' % settings.STATIC_URL
         self.assertHTMLEqual(display_value, expected)
 
-        display_value = display_for_field(None, models.BooleanField(null=True), self.empty_value)
-        expected = '<img src="%sadmin/img/icon-unknown.svg" alt="None" />' % settings.STATIC_URL
-        self.assertHTMLEqual(display_value, expected)
-
         display_value = display_for_field(None, models.DecimalField(), self.empty_value)
         self.assertEqual(display_value, self.empty_value)
 
         display_value = display_for_field(None, models.FloatField(), self.empty_value)
         self.assertEqual(display_value, self.empty_value)
-
-        display_value = display_for_field(None, models.JSONField(), self.empty_value)
-        self.assertEqual(display_value, self.empty_value)
-
-    def test_json_display_for_field(self):
-        tests = [
-            ({'a': {'b': 'c'}}, '{"a": {"b": "c"}}'),
-            (['a', 'b'], '["a", "b"]'),
-            ('a', '"a"'),
-            ({'a': '你好 世界'}, '{"a": "你好 世界"}'),
-            ({('a', 'b'): 'c'}, "{('a', 'b'): 'c'}"),  # Invalid JSON.
-        ]
-        for value, display_value in tests:
-            with self.subTest(value=value):
-                self.assertEqual(
-                    display_for_field(value, models.JSONField(), self.empty_value),
-                    display_value,
-                )
 
     def test_number_formats_display_for_field(self):
         display_value = display_for_field(12345.6789, models.FloatField(), self.empty_value)
@@ -306,22 +282,6 @@ class UtilsTests(SimpleTestCase):
             ("not Really the Model", MockModelAdmin.test_from_model)
         )
 
-    def test_label_for_field_form_argument(self):
-        class ArticleForm(forms.ModelForm):
-            extra_form_field = forms.BooleanField()
-
-            class Meta:
-                fields = '__all__'
-                model = Article
-
-        self.assertEqual(
-            label_for_field('extra_form_field', Article, form=ArticleForm()),
-            'Extra form field'
-        )
-        msg = "Unable to lookup 'nonexistent' on Article or ArticleForm"
-        with self.assertRaisesMessage(AttributeError, msg):
-            label_for_field('nonexistent', Article, form=ArticleForm()),
-
     def test_label_for_property(self):
         # NOTE: cannot use @property decorator, because of
         # AttributeError: 'property' object has no attribute 'short_description'
@@ -335,16 +295,6 @@ class UtilsTests(SimpleTestCase):
             label_for_field("test_from_property", Article, model_admin=MockModelAdmin),
             'property short description'
         )
-
-    def test_help_text_for_field(self):
-        tests = [
-            ('article', ''),
-            ('unknown', ''),
-            ('hist', 'History help text'),
-        ]
-        for name, help_text in tests:
-            with self.subTest(name=name):
-                self.assertEqual(help_text_for_field(name, Article), help_text)
 
     def test_related_name(self):
         """

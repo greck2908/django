@@ -1,14 +1,8 @@
-import functools
 import inspect
 
 
-@functools.lru_cache(maxsize=512)
-def _get_signature(func):
-    return inspect.signature(func)
-
-
 def get_func_args(func):
-    sig = _get_signature(func)
+    sig = inspect.signature(func)
     return [
         arg_name for arg_name, param in sig.parameters.items()
         if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
@@ -21,7 +15,7 @@ def get_func_full_args(func):
     does not have a default value, omit it in the tuple. Arguments such as
     *args and **kwargs are also included.
     """
-    sig = _get_signature(func)
+    sig = inspect.signature(func)
     args = []
     for arg_name, param in sig.parameters.items():
         name = arg_name
@@ -40,9 +34,8 @@ def get_func_full_args(func):
 
 
 def func_accepts_kwargs(func):
-    """Return True if function 'func' accepts keyword arguments **kwargs."""
     return any(
-        p for p in _get_signature(func).parameters.values()
+        p for p in inspect.signature(func).parameters.values()
         if p.kind == p.VAR_KEYWORD
     )
 
@@ -52,19 +45,18 @@ def func_accepts_var_args(func):
     Return True if function 'func' accepts positional arguments *args.
     """
     return any(
-        p for p in _get_signature(func).parameters.values()
+        p for p in inspect.signature(func).parameters.values()
         if p.kind == p.VAR_POSITIONAL
     )
 
 
-def method_has_no_args(meth):
-    """Return True if a method only accepts 'self'."""
-    count = len([
-        p for p in _get_signature(meth).parameters.values()
+def func_has_no_args(func):
+    args = [
+        p for p in inspect.signature(func).parameters.values()
         if p.kind == p.POSITIONAL_OR_KEYWORD
-    ])
-    return count == 0 if inspect.ismethod(meth) else count == 1
+    ]
+    return len(args) == 1
 
 
 def func_supports_parameter(func, parameter):
-    return parameter in _get_signature(func).parameters
+    return parameter in inspect.signature(func).parameters

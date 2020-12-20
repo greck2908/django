@@ -3,7 +3,7 @@ Testing some internals of the template processing. These are *not* examples to b
 """
 from django.template import Library, TemplateSyntaxError
 from django.template.base import (
-    FilterExpression, Parser, Token, TokenType, Variable,
+    TOKEN_BLOCK, FilterExpression, Parser, Token, Variable,
 )
 from django.template.defaultfilters import register as filter_library
 from django.test import SimpleTestCase
@@ -15,7 +15,7 @@ class ParserTests(SimpleTestCase):
         """
         #7027 -- _() syntax should work with spaces
         """
-        token = Token(TokenType.BLOCK, 'sometag _("Page not found") value|yesno:_("yes,no")')
+        token = Token(TOKEN_BLOCK, 'sometag _("Page not found") value|yesno:_("yes,no")')
         split = token.split_contents()
         self.assertEqual(split, ["sometag", '_("Page not found")', 'value|yesno:_("yes,no")'])
 

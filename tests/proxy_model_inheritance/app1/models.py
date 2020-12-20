@@ -1,3 +1,4 @@
+# TODO: why can't I make this ..app2
 from app2.models import NiceModel
 
 

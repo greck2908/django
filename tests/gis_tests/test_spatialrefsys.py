@@ -1,10 +1,8 @@
 import re
 
-from django.db import connection
 from django.test import TestCase, skipUnlessDBFeature
-from django.utils.functional import cached_property
 
-from .utils import oracle, postgis, spatialite
+from .utils import SpatialRefSys, oracle, postgis, spatialite
 
 test_srs = ({
     'srid': 4326,
@@ -13,7 +11,7 @@ test_srs = ({
     # Only the beginning, because there are differences depending on installed libs
     'srtext': 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84"',
     # +ellps=WGS84 has been removed in the 4326 proj string in proj-4.8
-    'proj_re': r'\+proj=longlat (\+ellps=WGS84 )?(\+datum=WGS84 |\+towgs84=0,0,0,0,0,0,0 )\+no_defs ?',
+    'proj4_re': r'\+proj=longlat (\+ellps=WGS84 )?(\+datum=WGS84 |\+towgs84=0,0,0,0,0,0,0 )\+no_defs ',
     'spheroid': 'WGS 84', 'name': 'WGS 84',
     'geographic': True, 'projected': False, 'spatialite': True,
     # From proj's "cs2cs -le" and Wikipedia (semi-minor only)
@@ -39,9 +37,9 @@ test_srs = ({
         'PROJCS["NAD83 / Texas South Central",GEOGCS["NAD83",'
         'DATUM["North_American_Datum_1983",SPHEROID["GRS 1980"'
     ),
-    'proj_re': r'\+proj=lcc (\+lat_1=30.28333333333333? |\+lat_2=28.38333333333333? |\+lat_0=27.83333333333333? |'
-               r'\+lon_0=-99 ){4}\+x_0=600000 \+y_0=4000000 (\+ellps=GRS80 )?'
-               r'(\+datum=NAD83 |\+towgs84=0,0,0,0,0,0,0 )?\+units=m \+no_defs ?',
+    'proj4_re': r'\+proj=lcc \+lat_1=30.28333333333333 \+lat_2=28.38333333333333 \+lat_0=27.83333333333333 '
+                r'\+lon_0=-99 \+x_0=600000 \+y_0=4000000 (\+ellps=GRS80 )?'
+                r'(\+datum=NAD83 |\+towgs84=0,0,0,0,0,0,0 )?\+units=m \+no_defs ',
     'spheroid': 'GRS 1980', 'name': 'NAD83 / Texas South Central',
     'geographic': False, 'projected': True, 'spatialite': False,
     # From proj's "cs2cs -le" and Wikipedia (semi-minor only)
@@ -53,13 +51,9 @@ test_srs = ({
 @skipUnlessDBFeature("has_spatialrefsys_table")
 class SpatialRefSysTest(TestCase):
 
-    @cached_property
-    def SpatialRefSys(self):
-        return connection.ops.connection.ops.spatial_ref_sys()
-
     def test_get_units(self):
         epsg_4326 = next(f for f in test_srs if f['srid'] == 4326)
-        unit, unit_name = self.SpatialRefSys().get_units(epsg_4326['wkt'])
+        unit, unit_name = SpatialRefSys().get_units(epsg_4326['wkt'])
         self.assertEqual(unit_name, 'degree')
         self.assertAlmostEqual(unit, 0.01745329251994328)
 
@@ -68,7 +62,7 @@ class SpatialRefSysTest(TestCase):
         Test retrieval of SpatialRefSys model objects.
         """
         for sd in test_srs:
-            srs = self.SpatialRefSys.objects.get(srid=sd['srid'])
+            srs = SpatialRefSys.objects.get(srid=sd['srid'])
             self.assertEqual(sd['srid'], srs.srid)
 
             # Some of the authority names are borked on Oracle, e.g., SRID=32140.
@@ -80,30 +74,30 @@ class SpatialRefSysTest(TestCase):
 
             self.assertEqual(sd['auth_srid'], srs.auth_srid)
 
-            # No PROJ and different srtext on oracle backends :(
+            # No proj.4 and different srtext on oracle backends :(
             if postgis:
                 self.assertTrue(srs.wkt.startswith(sd['srtext']))
-                self.assertRegex(srs.proj4text, sd['proj_re'])
+                self.assertRegex(srs.proj4text, sd['proj4_re'])
 
     def test_osr(self):
         """
         Test getting OSR objects from SpatialRefSys model objects.
         """
         for sd in test_srs:
-            sr = self.SpatialRefSys.objects.get(srid=sd['srid'])
+            sr = SpatialRefSys.objects.get(srid=sd['srid'])
             self.assertTrue(sr.spheroid.startswith(sd['spheroid']))
             self.assertEqual(sd['geographic'], sr.geographic)
             self.assertEqual(sd['projected'], sr.projected)
 
             if not (spatialite and not sd['spatialite']):
-                # Can't get 'NAD83 / Texas South Central' from PROJ string
+                # Can't get 'NAD83 / Texas South Central' from PROJ.4 string
                 # on SpatiaLite
                 self.assertTrue(sr.name.startswith(sd['name']))
 
             # Testing the SpatialReference object directly.
             if postgis or spatialite:
                 srs = sr.srs
-                self.assertRegex(srs.proj, sd['proj_re'])
+                self.assertRegex(srs.proj4, sd['proj4_re'])
                 self.assertTrue(srs.wkt.startswith(sd['srtext']))
 
     def test_ellipsoid(self):
@@ -116,7 +110,7 @@ class SpatialRefSysTest(TestCase):
             prec = sd['eprec']
 
             # Getting our spatial reference and its ellipsoid
-            srs = self.SpatialRefSys.objects.get(srid=sd['srid'])
+            srs = SpatialRefSys.objects.get(srid=sd['srid'])
             ellps2 = srs.ellipsoid
 
             for i in range(3):
@@ -132,9 +126,9 @@ class SpatialRefSysTest(TestCase):
 
         add_srs_entry(3857)
         self.assertTrue(
-            self.SpatialRefSys.objects.filter(srid=3857).exists()
+            SpatialRefSys.objects.filter(srid=3857).exists()
         )
-        srs = self.SpatialRefSys.objects.get(srid=3857)
+        srs = SpatialRefSys.objects.get(srid=3857)
         self.assertTrue(
-            self.SpatialRefSys.get_spheroid(srs.wkt).startswith('SPHEROID[')
+            SpatialRefSys.get_spheroid(srs.wkt).startswith('SPHEROID[')
         )

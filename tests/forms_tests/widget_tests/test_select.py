@@ -122,7 +122,7 @@ class SelectTest(WidgetTest):
             ),
         )
 
-    def test_choices_constructor(self):
+    def test_choices_constuctor(self):
         widget = Select(choices=[(1, 1), (2, 2), (3, 3)])
         self.check_html(widget, 'num', 2, html=(
             """<select name="num">
@@ -257,13 +257,13 @@ class SelectTest(WidgetTest):
         self.assertEqual(options[0]['value'], 'J')
         self.assertEqual(options[0]['label'], 'John')
         self.assertEqual(options[0]['index'], '0')
-        self.assertIs(options[0]['selected'], True)
+        self.assertEqual(options[0]['selected'], True)
         # Template-related attributes
         self.assertEqual(options[1]['name'], 'name')
         self.assertEqual(options[1]['value'], 'P')
         self.assertEqual(options[1]['label'], 'Paul')
         self.assertEqual(options[1]['index'], '1')
-        self.assertIs(options[1]['selected'], False)
+        self.assertEqual(options[1]['selected'], False)
 
     def test_optgroups(self):
         choices = [
@@ -294,7 +294,6 @@ class SelectTest(WidgetTest):
                 'template_name': 'django/forms/widgets/select_option.html',
                 'name': 'name',
                 'selected': False,
-                'wrap_label': True,
             }, {
                 'value': 'cd',
                 'type': 'select',
@@ -304,7 +303,6 @@ class SelectTest(WidgetTest):
                 'template_name': 'django/forms/widgets/select_option.html',
                 'name': 'name',
                 'selected': False,
-                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 0)
@@ -321,7 +319,6 @@ class SelectTest(WidgetTest):
                 'name': 'name',
                 'selected': True,
                 'type': 'select',
-                'wrap_label': True,
             }, {
                 'value': 'dvd',
                 'template_name': 'django/forms/widgets/select_option.html',
@@ -331,12 +328,11 @@ class SelectTest(WidgetTest):
                 'name': 'name',
                 'selected': False,
                 'type': 'select',
-                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 1)
         label, options, index = unknown
-        self.assertIsNone(label)
+        self.assertEqual(label, None)
         self.assertEqual(
             options,
             [{
@@ -348,7 +344,6 @@ class SelectTest(WidgetTest):
                 'index': '2',
                 'name': 'name',
                 'type': 'select',
-                'wrap_label': True,
             }]
         )
         self.assertEqual(index, 2)

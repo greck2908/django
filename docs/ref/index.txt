@@ -19,7 +19,6 @@ API Reference
    middleware
    migration-operations
    models/index
-   paginator
    request-response
    schema-editor
    settings

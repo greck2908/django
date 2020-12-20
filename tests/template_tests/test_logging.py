@@ -4,7 +4,29 @@ from django.template import Engine, Variable, VariableDoesNotExist
 from django.test import SimpleTestCase
 
 
-class VariableResolveLoggingTests(SimpleTestCase):
+class TestHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.log_record = None
+
+    def emit(self, record):
+        self.log_record = record
+
+
+class BaseTemplateLoggingTestCase(SimpleTestCase):
+    def setUp(self):
+        self.test_handler = TestHandler()
+        self.logger = logging.getLogger('django.template')
+        self.original_level = self.logger.level
+        self.logger.addHandler(self.test_handler)
+        self.logger.setLevel(self.loglevel)
+
+    def tearDown(self):
+        self.logger.removeHandler(self.test_handler)
+        self.logger.level = self.original_level
+
+
+class VariableResolveLoggingTests(BaseTemplateLoggingTestCase):
     loglevel = logging.DEBUG
 
     def test_log_on_variable_does_not_exist_silent(self):
@@ -25,43 +47,36 @@ class VariableResolveLoggingTests(SimpleTestCase):
                 raise TestObject.SilentDoesNotExist("Attribute does not exist.")
 
             def __iter__(self):
-                return (attr for attr in dir(TestObject) if attr[:2] != "__")
+                return iter(attr for attr in dir(TestObject) if attr[:2] != "__")
 
             def __getitem__(self, item):
                 return self.__dict__[item]
 
-        with self.assertLogs('django.template', self.loglevel) as cm:
-            Variable('article').resolve(TestObject())
+        Variable('article').resolve(TestObject())
 
-        self.assertEqual(len(cm.records), 1)
-        log_record = cm.records[0]
         self.assertEqual(
-            log_record.getMessage(),
+            self.test_handler.log_record.getMessage(),
             "Exception while resolving variable 'article' in template 'template_name'."
         )
-        self.assertIsNotNone(log_record.exc_info)
-        raised_exception = log_record.exc_info[1]
+        self.assertIsNotNone(self.test_handler.log_record.exc_info)
+        raised_exception = self.test_handler.log_record.exc_info[1]
         self.assertEqual(str(raised_exception), 'Attribute does not exist.')
 
     def test_log_on_variable_does_not_exist_not_silent(self):
-        with self.assertLogs('django.template', self.loglevel) as cm:
-            with self.assertRaises(VariableDoesNotExist):
-                Variable('article.author').resolve({'article': {'section': 'News'}})
+        with self.assertRaises(VariableDoesNotExist):
+            Variable('article.author').resolve({'article': {'section': 'News'}})
 
-        self.assertEqual(len(cm.records), 1)
-        log_record = cm.records[0]
         self.assertEqual(
-            log_record.getMessage(),
+            self.test_handler.log_record.getMessage(),
             "Exception while resolving variable 'author' in template 'unknown'."
         )
-        self.assertIsNotNone(log_record.exc_info)
-        raised_exception = log_record.exc_info[1]
+        self.assertIsNotNone(self.test_handler.log_record.exc_info)
+        raised_exception = self.test_handler.log_record.exc_info[1]
         self.assertEqual(
             str(raised_exception),
             "Failed lookup for key [author] in {'section': 'News'}"
         )
 
     def test_no_log_when_variable_exists(self):
-        with self.assertRaisesMessage(AssertionError, 'no logs'):
-            with self.assertLogs('django.template', self.loglevel):
-                Variable('article.section').resolve({'article': {'section': 'News'}})
+        Variable('article.section').resolve({'article': {'section': 'News'}})
+        self.assertIsNone(self.test_handler.log_record)

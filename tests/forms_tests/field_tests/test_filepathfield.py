@@ -1,7 +1,6 @@
 import os.path
 
-from django.core.exceptions import ValidationError
-from django.forms import FilePathField
+from django.forms import FilePathField, ValidationError
 from django.test import SimpleTestCase
 
 PATH = os.path.dirname(os.path.abspath(__file__))
@@ -41,10 +40,6 @@ class FilePathFieldTest(SimpleTestCase):
 
     def test_fix_os_paths(self):
         self.assertEqual(fix_os_paths(self.path), ('/filepathfield_test_dir/'))
-
-    def test_nonexistent_path(self):
-        with self.assertRaisesMessage(FileNotFoundError, 'nonexistent'):
-            FilePathField(path='nonexistent')
 
     def test_no_options(self):
         f = FilePathField(path=self.path)

@@ -23,100 +23,107 @@ class RenameMethodsTests(SimpleTestCase):
         Ensure a warning is raised upon class definition to suggest renaming
         the faulty method.
         """
-        msg = '`Manager.old` method should be renamed `new`.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('always')
+
             class Manager(metaclass=RenameManagerMethods):
                 def old(self):
                     pass
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded[0].message)
+            self.assertEqual(msg, '`Manager.old` method should be renamed `new`.')
 
     def test_get_new_defined(self):
         """
         Ensure `old` complains and not `new` when only `new` is defined.
         """
-        class Manager(metaclass=RenameManagerMethods):
-            def new(self):
-                pass
-        manager = Manager()
-
         with warnings.catch_warnings(record=True) as recorded:
-            warnings.simplefilter('always')
-            manager.new()
-        self.assertEqual(len(recorded), 0)
+            warnings.simplefilter('ignore')
 
-        msg = '`Manager.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            class Manager(metaclass=RenameManagerMethods):
+                def new(self):
+                    pass
+            warnings.simplefilter('always')
+            manager = Manager()
+            manager.new()
+            self.assertEqual(len(recorded), 0)
             manager.old()
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded.pop().message)
+            self.assertEqual(msg, '`Manager.old` is deprecated, use `new` instead.')
 
     def test_get_old_defined(self):
         """
         Ensure `old` complains when only `old` is defined.
         """
-        msg = '`Manager.old` method should be renamed `new`.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('ignore')
+
             class Manager(metaclass=RenameManagerMethods):
                 def old(self):
                     pass
-        manager = Manager()
-
-        with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('always')
+            manager = Manager()
             manager.new()
-        self.assertEqual(len(recorded), 0)
-
-        msg = '`Manager.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            self.assertEqual(len(recorded), 0)
             manager.old()
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded.pop().message)
+            self.assertEqual(msg, '`Manager.old` is deprecated, use `new` instead.')
 
     def test_deprecated_subclass_renamed(self):
         """
         Ensure the correct warnings are raised when a class that didn't rename
         `old` subclass one that did.
         """
-        class Renamed(metaclass=RenameManagerMethods):
-            def new(self):
-                pass
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('ignore')
 
-        msg = '`Deprecated.old` method should be renamed `new`.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            class Renamed(metaclass=RenameManagerMethods):
+                def new(self):
+                    pass
+
             class Deprecated(Renamed):
                 def old(self):
                     super().old()
-
-        deprecated = Deprecated()
-
-        msg = '`Renamed.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            warnings.simplefilter('always')
+            deprecated = Deprecated()
             deprecated.new()
-
-        msg = '`Deprecated.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded.pop().message)
+            self.assertEqual(msg, '`Renamed.old` is deprecated, use `new` instead.')
+            recorded[:] = []
             deprecated.old()
+            self.assertEqual(len(recorded), 2)
+            msgs = [str(warning.message) for warning in recorded]
+            self.assertEqual(msgs, [
+                '`Deprecated.old` is deprecated, use `new` instead.',
+                '`Renamed.old` is deprecated, use `new` instead.',
+            ])
 
     def test_renamed_subclass_deprecated(self):
         """
         Ensure the correct warnings are raised when a class that renamed
         `old` subclass one that didn't.
         """
-        msg = '`Deprecated.old` method should be renamed `new`.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('ignore')
+
             class Deprecated(metaclass=RenameManagerMethods):
                 def old(self):
                     pass
 
-        class Renamed(Deprecated):
-            def new(self):
-                super().new()
-
-        renamed = Renamed()
-
-        with warnings.catch_warnings(record=True) as recorded:
+            class Renamed(Deprecated):
+                def new(self):
+                    super().new()
             warnings.simplefilter('always')
+            renamed = Renamed()
             renamed.new()
-        self.assertEqual(len(recorded), 0)
-
-        msg = '`Renamed.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            self.assertEqual(len(recorded), 0)
             renamed.old()
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded.pop().message)
+            self.assertEqual(msg, '`Renamed.old` is deprecated, use `new` instead.')
 
     def test_deprecated_subclass_renamed_and_mixins(self):
         """
@@ -124,32 +131,36 @@ class RenameMethodsTests(SimpleTestCase):
         class that renamed `old` and mixins that may or may not have renamed
         `new`.
         """
-        class Renamed(metaclass=RenameManagerMethods):
-            def new(self):
-                pass
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('ignore')
 
-        class RenamedMixin:
-            def new(self):
-                super().new()
+            class Renamed(metaclass=RenameManagerMethods):
+                def new(self):
+                    pass
 
-        class DeprecatedMixin:
-            def old(self):
-                super().old()
+            class RenamedMixin:
+                def new(self):
+                    super().new()
 
-        msg = '`DeprecatedMixin.old` method should be renamed `new`.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            class DeprecatedMixin:
+                def old(self):
+                    super().old()
+
             class Deprecated(DeprecatedMixin, RenamedMixin, Renamed):
                 pass
-
-        deprecated = Deprecated()
-
-        msg = '`RenamedMixin.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            warnings.simplefilter('always')
+            deprecated = Deprecated()
             deprecated.new()
-
-        msg = '`DeprecatedMixin.old` is deprecated, use `new` instead.'
-        with self.assertWarnsMessage(DeprecationWarning, msg):
+            self.assertEqual(len(recorded), 1)
+            msg = str(recorded.pop().message)
+            self.assertEqual(msg, '`RenamedMixin.old` is deprecated, use `new` instead.')
             deprecated.old()
+            self.assertEqual(len(recorded), 2)
+            msgs = [str(warning.message) for warning in recorded]
+            self.assertEqual(msgs, [
+                '`DeprecatedMixin.old` is deprecated, use `new` instead.',
+                '`RenamedMixin.old` is deprecated, use `new` instead.',
+            ])
 
 
 class DeprecationInstanceCheckTest(SimpleTestCase):
@@ -159,5 +170,7 @@ class DeprecationInstanceCheckTest(SimpleTestCase):
             deprecation_warning = RemovedInNextVersionWarning
 
         msg = '`Manager` is deprecated, use `fake.path.Foo` instead.'
-        with self.assertWarnsMessage(RemovedInNextVersionWarning, msg):
-            isinstance(object, Manager)
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', category=RemovedInNextVersionWarning)
+            with self.assertRaisesMessage(RemovedInNextVersionWarning, msg):
+                isinstance(object, Manager)

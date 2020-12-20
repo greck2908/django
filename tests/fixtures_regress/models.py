@@ -98,10 +98,9 @@ class TestManager(models.Manager):
 
 
 class Store(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-    main = models.ForeignKey('self', models.SET_NULL, null=True)
-
     objects = TestManager()
+    name = models.CharField(max_length=255)
+    main = models.ForeignKey('self', models.SET_NULL, null=True)
 
     class Meta:
         ordering = ('name',)
@@ -114,9 +113,8 @@ class Store(models.Model):
 
 
 class Person(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-
     objects = TestManager()
+    name = models.CharField(max_length=255)
 
     class Meta:
         ordering = ('name',)
@@ -178,7 +176,7 @@ class RefToNKChild(models.Model):
 
 # ome models with pathological circular dependencies
 class Circle1(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -186,7 +184,7 @@ class Circle1(models.Model):
 
 
 class Circle2(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -194,7 +192,7 @@ class Circle2(models.Model):
 
 
 class Circle3(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -202,7 +200,7 @@ class Circle3(models.Model):
 
 
 class Circle4(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -210,7 +208,7 @@ class Circle4(models.Model):
 
 
 class Circle5(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -218,7 +216,7 @@ class Circle5(models.Model):
 
 
 class Circle6(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -226,7 +224,7 @@ class Circle6(models.Model):
 
 
 class ExternalDependency(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
 
     def natural_key(self):
         return (self.name,)
@@ -247,7 +245,6 @@ class BaseNKModel(models.Model):
     Base model with a natural_key and a manager with `get_by_natural_key`
     """
     data = models.CharField(max_length=20, unique=True)
-
     objects = NKManager()
 
     class Meta:

@@ -123,6 +123,9 @@ class OwnerProfile(models.Model):
 class Restaurant(Place):
     serves_pizza = models.BooleanField(default=False)
 
+    def __str__(self):
+        return self.name
+
 
 class Product(models.Model):
     slug = models.SlugField(unique=True)
@@ -135,11 +138,11 @@ class Price(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField()
 
-    class Meta:
-        unique_together = (('price', 'quantity'),)
-
     def __str__(self):
         return "%s for %s" % (self.quantity, self.price)
+
+    class Meta:
+        unique_together = (('price', 'quantity'),)
 
 
 class MexicanRestaurant(Restaurant):
@@ -220,7 +223,7 @@ class Post(models.Model):
     posted = models.DateField()
 
     def __str__(self):
-        return self.title
+        return self.name
 
 
 # Models for testing UUID primary keys

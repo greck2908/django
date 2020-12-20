@@ -1,3 +1,5 @@
+from io import StringIO
+
 from django.apps import apps
 from django.core import management
 from django.db import migrations
@@ -7,7 +9,7 @@ from django.test import TransactionTestCase, override_settings
 APP_CONFIG = apps.get_app_config('migrate_signals')
 SIGNAL_ARGS = ['app_config', 'verbosity', 'interactive', 'using', 'plan', 'apps']
 MIGRATE_DATABASE = 'default'
-MIGRATE_VERBOSITY = 0
+MIGRATE_VERBOSITY = 1
 MIGRATE_INTERACTIVE = False
 
 
@@ -69,7 +71,7 @@ class MigrateSignalTests(TransactionTestCase):
         post_migrate_receiver = Receiver(signals.post_migrate)
         management.call_command(
             'migrate', database=MIGRATE_DATABASE, verbosity=MIGRATE_VERBOSITY,
-            interactive=MIGRATE_INTERACTIVE,
+            interactive=MIGRATE_INTERACTIVE, stdout=StringIO(),
         )
 
         for receiver in [pre_migrate_receiver, post_migrate_receiver]:
@@ -90,9 +92,10 @@ class MigrateSignalTests(TransactionTestCase):
         """
         pre_migrate_receiver = Receiver(signals.pre_migrate)
         post_migrate_receiver = Receiver(signals.post_migrate)
+        stdout = StringIO()
         management.call_command(
             'migrate', database=MIGRATE_DATABASE, verbosity=MIGRATE_VERBOSITY,
-            interactive=MIGRATE_INTERACTIVE,
+            interactive=MIGRATE_INTERACTIVE, stdout=stdout,
         )
         for receiver in [pre_migrate_receiver, post_migrate_receiver]:
             args = receiver.call_args
@@ -116,7 +119,7 @@ class MigrateSignalTests(TransactionTestCase):
         post_migrate_receiver = Receiver(signals.post_migrate)
         management.call_command(
             'migrate', database=MIGRATE_DATABASE, verbosity=MIGRATE_VERBOSITY,
-            interactive=MIGRATE_INTERACTIVE,
+            interactive=MIGRATE_INTERACTIVE, stdout=stdout,
         )
         self.assertEqual(
             [model._meta.label for model in pre_migrate_receiver.call_args['apps'].get_models()],

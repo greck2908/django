@@ -1,4 +1,3 @@
-import json
 import os
 import tempfile
 import uuid
@@ -8,10 +7,11 @@ from django.contrib.contenttypes.fields import (
 )
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import FileSystemStorage
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
-from django.db.models.fields.files import ImageFieldFile
-from django.utils.translation import gettext_lazy as _
+from django.db.models.fields.files import ImageField, ImageFieldFile
+from django.db.models.fields.related import (
+    ForeignKey, ForeignObject, ManyToManyField, OneToOneField,
+)
 
 try:
     from PIL import Image
@@ -46,17 +46,8 @@ class Whiz(models.Model):
         )
         ),
         (0, 'Other'),
-        (5, _('translated')),
     )
     c = models.IntegerField(choices=CHOICES, null=True)
-
-
-class WhizDelayed(models.Model):
-    c = models.IntegerField(choices=(), null=True)
-
-
-# Contrived way of adding choices later.
-WhizDelayed._meta.get_field('c').choices = Whiz.CHOICES
 
 
 class WhizIter(models.Model):
@@ -65,14 +56,6 @@ class WhizIter(models.Model):
 
 class WhizIterEmpty(models.Model):
     c = models.CharField(choices=iter(()), blank=True, max_length=1)
-
-
-class Choiceful(models.Model):
-    no_choices = models.IntegerField(null=True)
-    empty_choices = models.IntegerField(choices=(), null=True)
-    with_choices = models.IntegerField(choices=[(1, 'A')], null=True)
-    empty_choices_bool = models.BooleanField(choices=())
-    empty_choices_text = models.TextField(choices=())
 
 
 class BigD(models.Model):
@@ -91,18 +74,6 @@ class UnicodeSlugField(models.Model):
     s = models.SlugField(max_length=255, allow_unicode=True)
 
 
-class AutoModel(models.Model):
-    value = models.AutoField(primary_key=True)
-
-
-class BigAutoModel(models.Model):
-    value = models.BigAutoField(primary_key=True)
-
-
-class SmallAutoModel(models.Model):
-    value = models.SmallAutoField(primary_key=True)
-
-
 class SmallIntegerModel(models.Model):
     value = models.SmallIntegerField()
 
@@ -114,10 +85,6 @@ class IntegerModel(models.Model):
 class BigIntegerModel(models.Model):
     value = models.BigIntegerField()
     null_value = models.BigIntegerField(null=True, blank=True)
-
-
-class PositiveBigIntegerModel(models.Model):
-    value = models.PositiveBigIntegerField()
 
 
 class PositiveSmallIntegerModel(models.Model):
@@ -134,8 +101,7 @@ class Post(models.Model):
 
 
 class NullBooleanModel(models.Model):
-    nbfield = models.BooleanField(null=True, blank=True)
-    nbfield_old = models.NullBooleanField()
+    nbfield = models.NullBooleanField()
 
 
 class BooleanModel(models.Model):
@@ -254,7 +220,7 @@ if Image:
             self.was_opened = True
             super().open()
 
-    class TestImageField(models.ImageField):
+    class TestImageField(ImageField):
         attr_class = TestImageFieldFile
 
     # Set up a temp directory for file storage.
@@ -334,43 +300,6 @@ if Image:
                                   width_field='headshot_width')
 
 
-class CustomJSONDecoder(json.JSONDecoder):
-    def __init__(self, object_hook=None, *args, **kwargs):
-        return super().__init__(object_hook=self.as_uuid, *args, **kwargs)
-
-    def as_uuid(self, dct):
-        if 'uuid' in dct:
-            dct['uuid'] = uuid.UUID(dct['uuid'])
-        return dct
-
-
-class JSONModel(models.Model):
-    value = models.JSONField()
-
-    class Meta:
-        required_db_features = {'supports_json_field'}
-
-
-class NullableJSONModel(models.Model):
-    value = models.JSONField(blank=True, null=True)
-    value_custom = models.JSONField(
-        encoder=DjangoJSONEncoder,
-        decoder=CustomJSONDecoder,
-        null=True,
-    )
-
-    class Meta:
-        required_db_features = {'supports_json_field'}
-
-
-class RelatedJSONModel(models.Model):
-    value = models.JSONField()
-    json_model = models.ForeignKey(NullableJSONModel, models.CASCADE)
-
-    class Meta:
-        required_db_features = {'supports_json_field'}
-
-
 class AllFieldsModel(models.Model):
     big_integer = models.BigIntegerField()
     binary = models.BinaryField()
@@ -395,20 +324,20 @@ class AllFieldsModel(models.Model):
     url = models.URLField()
     uuid = models.UUIDField()
 
-    fo = models.ForeignObject(
+    fo = ForeignObject(
         'self',
         on_delete=models.CASCADE,
-        from_fields=['positive_integer'],
+        from_fields=['abstract_non_concrete_id'],
         to_fields=['id'],
         related_name='reverse'
     )
-    fk = models.ForeignKey(
+    fk = ForeignKey(
         'self',
         models.CASCADE,
         related_name='reverse2'
     )
-    m2m = models.ManyToManyField('self')
-    oto = models.OneToOneField('self', models.CASCADE)
+    m2m = ManyToManyField('self')
+    oto = OneToOneField('self', models.CASCADE)
 
     object_id = models.PositiveIntegerField()
     content_type = models.ForeignKey(ContentType, models.CASCADE)

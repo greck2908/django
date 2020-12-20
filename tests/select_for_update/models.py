@@ -1,40 +1,13 @@
 from django.db import models
 
 
-class Entity(models.Model):
-    pass
-
-
-class Country(Entity):
+class Country(models.Model):
     name = models.CharField(max_length=30)
-
-
-class EUCountry(Country):
-    join_date = models.DateField()
 
 
 class City(models.Model):
     name = models.CharField(max_length=30)
     country = models.ForeignKey(Country, models.CASCADE)
-
-
-class EUCity(models.Model):
-    name = models.CharField(max_length=30)
-    country = models.ForeignKey(EUCountry, models.CASCADE)
-
-
-class CountryProxy(Country):
-    class Meta:
-        proxy = True
-
-
-class CountryProxyProxy(CountryProxy):
-    class Meta:
-        proxy = True
-
-
-class CityCountryProxy(models.Model):
-    country = models.ForeignKey(CountryProxyProxy, models.CASCADE)
 
 
 class Person(models.Model):

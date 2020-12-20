@@ -1,5 +1,3 @@
-import uuid
-
 from django.db import models
 
 
@@ -75,7 +73,6 @@ class Invitation(models.Model):
 
 
 class Swallow(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4)
     origin = models.CharField(max_length=255)
     load = models.FloatField()
     speed = models.FloatField()

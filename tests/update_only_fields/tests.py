@@ -5,10 +5,7 @@ from .models import Account, Employee, Person, Profile, ProxyEmployee
 
 
 class UpdateOnlyFieldsTests(TestCase):
-    msg = (
-        'The following fields do not exist in this model, are m2m fields, or '
-        'are non-concrete fields: %s'
-    )
+    msg = 'The following fields do not exist in this model or are m2m fields: %s'
 
     def test_update_fields_basic(self):
         s = Person.objects.create(name='Sara', gender='F')
@@ -257,8 +254,3 @@ class UpdateOnlyFieldsTests(TestCase):
         self.assertEqual(Person.objects.count(), 1)
         with self.assertNumQueries(2):
             s.save(update_fields=['name', 'employee_num'])
-
-    def test_update_non_concrete_field(self):
-        profile_boss = Profile.objects.create(name='Boss', salary=3000)
-        with self.assertRaisesMessage(ValueError, self.msg % 'non_concrete'):
-            profile_boss.save(update_fields=['non_concrete'])

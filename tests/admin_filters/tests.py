@@ -3,8 +3,8 @@ import sys
 import unittest
 
 from django.contrib.admin import (
-    AllValuesFieldListFilter, BooleanFieldListFilter, EmptyFieldListFilter,
-    ModelAdmin, RelatedOnlyFieldListFilter, SimpleListFilter, site,
+    AllValuesFieldListFilter, BooleanFieldListFilter, ModelAdmin,
+    RelatedOnlyFieldListFilter, SimpleListFilter, site,
 )
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.auth.admin import UserAdmin
@@ -12,9 +12,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.test import RequestFactory, TestCase, override_settings
 
-from .models import (
-    Book, Bookmark, Department, Employee, ImprovedBook, TaggedItem,
-)
+from .models import Book, Bookmark, Department, Employee, TaggedItem
 
 
 def select_by(dictlist, key, value):
@@ -140,12 +138,8 @@ class CustomUserAdmin(UserAdmin):
 
 
 class BookAdmin(ModelAdmin):
-    list_filter = ('year', 'author', 'contributors', 'is_best_seller', 'date_registered', 'no', 'availability')
+    list_filter = ('year', 'author', 'contributors', 'is_best_seller', 'date_registered', 'no')
     ordering = ('-id',)
-
-
-class BookAdmin2(ModelAdmin):
-    list_filter = ('year', 'author', 'contributors', 'is_best_seller2', 'date_registered', 'no')
 
 
 class BookAdminWithTupleBooleanFilter(BookAdmin):
@@ -156,7 +150,6 @@ class BookAdminWithTupleBooleanFilter(BookAdmin):
         ('is_best_seller', BooleanFieldListFilter),
         'date_registered',
         'no',
-        ('availability', BooleanFieldListFilter),
     )
 
 
@@ -251,70 +244,51 @@ class BookmarkAdminGenericRelation(ModelAdmin):
     list_filter = ['tags__tag']
 
 
-class BookAdminWithEmptyFieldListFilter(ModelAdmin):
-    list_filter = [
-        ('author', EmptyFieldListFilter),
-        ('title', EmptyFieldListFilter),
-        ('improvedbook', EmptyFieldListFilter),
-    ]
-
-
-class DepartmentAdminWithEmptyFieldListFilter(ModelAdmin):
-    list_filter = [
-        ('description', EmptyFieldListFilter),
-        ('employee', EmptyFieldListFilter),
-    ]
-
-
 class ListFiltersTests(TestCase):
-    request_factory = RequestFactory()
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.today = datetime.date.today()
-        cls.tomorrow = cls.today + datetime.timedelta(days=1)
-        cls.one_week_ago = cls.today - datetime.timedelta(days=7)
-        if cls.today.month == 12:
-            cls.next_month = cls.today.replace(year=cls.today.year + 1, month=1, day=1)
+    def setUp(self):
+        self.today = datetime.date.today()
+        self.tomorrow = self.today + datetime.timedelta(days=1)
+        self.one_week_ago = self.today - datetime.timedelta(days=7)
+        if self.today.month == 12:
+            self.next_month = self.today.replace(year=self.today.year + 1, month=1, day=1)
         else:
-            cls.next_month = cls.today.replace(month=cls.today.month + 1, day=1)
-        cls.next_year = cls.today.replace(year=cls.today.year + 1, month=1, day=1)
+            self.next_month = self.today.replace(month=self.today.month + 1, day=1)
+        self.next_year = self.today.replace(year=self.today.year + 1, month=1, day=1)
+
+        self.request_factory = RequestFactory()
 
         # Users
-        cls.alfred = User.objects.create_superuser('alfred', 'alfred@example.com', 'password')
-        cls.bob = User.objects.create_user('bob', 'bob@example.com')
-        cls.lisa = User.objects.create_user('lisa', 'lisa@example.com')
+        self.alfred = User.objects.create_user('alfred', 'alfred@example.com')
+        self.bob = User.objects.create_user('bob', 'bob@example.com')
+        self.lisa = User.objects.create_user('lisa', 'lisa@example.com')
 
         # Books
-        cls.djangonaut_book = Book.objects.create(
+        self.djangonaut_book = Book.objects.create(
             title='Djangonaut: an art of living', year=2009,
-            author=cls.alfred, is_best_seller=True, date_registered=cls.today,
-            is_best_seller2=True, availability=True,
+            author=self.alfred, is_best_seller=True, date_registered=self.today,
         )
-        cls.bio_book = Book.objects.create(
-            title='Django: a biography', year=1999, author=cls.alfred,
+        self.bio_book = Book.objects.create(
+            title='Django: a biography', year=1999, author=self.alfred,
             is_best_seller=False, no=207,
-            is_best_seller2=False, availability=False,
         )
-        cls.django_book = Book.objects.create(
-            title='The Django Book', year=None, author=cls.bob,
-            is_best_seller=None, date_registered=cls.today, no=103,
-            is_best_seller2=None, availability=True,
+        self.django_book = Book.objects.create(
+            title='The Django Book', year=None, author=self.bob,
+            is_best_seller=None, date_registered=self.today, no=103,
         )
-        cls.guitar_book = Book.objects.create(
+        self.guitar_book = Book.objects.create(
             title='Guitar for dummies', year=2002, is_best_seller=True,
-            date_registered=cls.one_week_ago,
-            is_best_seller2=True, availability=None,
+            date_registered=self.one_week_ago,
         )
-        cls.guitar_book.contributors.set([cls.bob, cls.lisa])
+        self.guitar_book.contributors.set([self.bob, self.lisa])
 
         # Departments
-        cls.dev = Department.objects.create(code='DEV', description='Development')
-        cls.design = Department.objects.create(code='DSN', description='Design')
+        self.dev = Department.objects.create(code='DEV', description='Development')
+        self.design = Department.objects.create(code='DSN', description='Design')
 
         # Employees
-        cls.john = Employee.objects.create(name='John Blue', department=cls.dev)
-        cls.jack = Employee.objects.create(name='Jack Red', department=cls.design)
+        self.john = Employee.objects.create(name='John Blue', department=self.dev)
+        self.jack = Employee.objects.create(name='Jack Red', department=self.design)
 
     def test_choicesfieldlistfilter_has_none_choice(self):
         """
@@ -326,7 +300,6 @@ class ListFiltersTests(TestCase):
 
         modeladmin = BookmarkChoicesAdmin(Bookmark, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
         filterspec = changelist.get_filters(request)[0][0]
         choices = list(filterspec.choices(changelist))
@@ -337,14 +310,10 @@ class ListFiltersTests(TestCase):
         modeladmin = BookAdmin(Book, site)
 
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist(request)
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today,
-            'date_registered__lt': self.tomorrow},
-        )
-        request.user = self.alfred
+        request = self.request_factory.get('/', {'date_registered__gte': self.today,
+                                                 'date_registered__lt': self.tomorrow})
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -364,11 +333,8 @@ class ListFiltersTests(TestCase):
             )
         )
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today.replace(day=1),
-            'date_registered__lt': self.next_month},
-        )
-        request.user = self.alfred
+        request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(day=1),
+                                                 'date_registered__lt': self.next_month})
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -392,11 +358,8 @@ class ListFiltersTests(TestCase):
             )
         )
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today.replace(month=1, day=1),
-            'date_registered__lt': self.next_year},
-        )
-        request.user = self.alfred
+        request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(month=1, day=1),
+                                                 'date_registered__lt': self.next_year})
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -424,7 +387,6 @@ class ListFiltersTests(TestCase):
             'date_registered__gte': str(self.one_week_ago),
             'date_registered__lt': str(self.tomorrow),
         })
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -446,7 +408,6 @@ class ListFiltersTests(TestCase):
 
         # Null/not null queries
         request = self.request_factory.get('/', {'date_registered__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -462,7 +423,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choice['query_string'], '?date_registered__isnull=True')
 
         request = self.request_factory.get('/', {'date_registered__isnull': 'False'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -478,7 +438,7 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choice['query_string'], '?date_registered__isnull=False')
 
     @unittest.skipIf(
-        sys.platform == 'win32',
+        sys.platform.startswith('win'),
         "Windows doesn't support setting a timezone that differs from the "
         "system timezone."
     )
@@ -491,7 +451,6 @@ class ListFiltersTests(TestCase):
         modeladmin = BookAdmin(Book, site)
 
         request = self.request_factory.get('/', {'year__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -506,7 +465,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[-1]['query_string'], '?year__isnull=True')
 
         request = self.request_factory.get('/', {'year': '2002'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct choice is selected
@@ -520,7 +478,6 @@ class ListFiltersTests(TestCase):
         # Make sure that correct filters are returned with custom querysets
         modeladmin = BookAdminWithCustomQueryset(self.alfred, Book, site)
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         filterspec = changelist.get_filters(request)[0][0]
@@ -537,7 +494,6 @@ class ListFiltersTests(TestCase):
         modeladmin = BookAdmin(Book, site)
 
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure that all users are present in the author's list filter
@@ -546,7 +502,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
 
         request = self.request_factory.get('/', {'author__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -561,7 +516,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[-1]['query_string'], '?author__isnull=True')
 
         request = self.request_factory.get('/', {'author__id__exact': self.alfred.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct choice is selected
@@ -572,64 +526,10 @@ class ListFiltersTests(TestCase):
         self.assertIs(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?author__id__exact=%d' % self.alfred.pk)
 
-    def test_relatedfieldlistfilter_foreignkey_ordering(self):
-        """RelatedFieldListFilter ordering respects ModelAdmin.ordering."""
-        class EmployeeAdminWithOrdering(ModelAdmin):
-            ordering = ('name',)
-
-        class BookAdmin(ModelAdmin):
-            list_filter = ('employee',)
-
-        site.register(Employee, EmployeeAdminWithOrdering)
-        self.addCleanup(lambda: site.unregister(Employee))
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(self.jack.pk, 'Jack Red'), (self.john.pk, 'John Blue')]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
-    def test_relatedfieldlistfilter_foreignkey_ordering_reverse(self):
-        class EmployeeAdminWithOrdering(ModelAdmin):
-            ordering = ('-name',)
-
-        class BookAdmin(ModelAdmin):
-            list_filter = ('employee',)
-
-        site.register(Employee, EmployeeAdminWithOrdering)
-        self.addCleanup(lambda: site.unregister(Employee))
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(self.john.pk, 'John Blue'), (self.jack.pk, 'Jack Red')]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
-    def test_relatedfieldlistfilter_foreignkey_default_ordering(self):
-        """RelatedFieldListFilter ordering respects Model.ordering."""
-        class BookAdmin(ModelAdmin):
-            list_filter = ('employee',)
-
-        self.addCleanup(setattr, Employee._meta, 'ordering', Employee._meta.ordering)
-        Employee._meta.ordering = ('name',)
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(self.jack.pk, 'Jack Red'), (self.john.pk, 'John Blue')]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
     def test_relatedfieldlistfilter_manytomany(self):
         modeladmin = BookAdmin(Book, site)
 
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure that all users are present in the contrib's list filter
@@ -638,7 +538,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
 
         request = self.request_factory.get('/', {'contributors__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -653,7 +552,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[-1]['query_string'], '?contributors__isnull=True')
 
         request = self.request_factory.get('/', {'contributors__id__exact': self.bob.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct choice is selected
@@ -668,7 +566,6 @@ class ListFiltersTests(TestCase):
 
         # FK relationship -----
         request = self.request_factory.get('/', {'books_authored__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -683,7 +580,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[-1]['query_string'], '?books_authored__isnull=True')
 
         request = self.request_factory.get('/', {'books_authored__id__exact': self.bio_book.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct choice is selected
@@ -695,7 +591,6 @@ class ListFiltersTests(TestCase):
 
         # M2M relationship -----
         request = self.request_factory.get('/', {'books_contributed__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -710,7 +605,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choices[-1]['query_string'], '?books_contributed__isnull=True')
 
         request = self.request_factory.get('/', {'books_contributed__id__exact': self.django_book.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct choice is selected
@@ -730,122 +624,16 @@ class ListFiltersTests(TestCase):
         filterspec = changelist.get_filters(request)[0]
         self.assertEqual(len(filterspec), 0)
 
-    def test_relatedfieldlistfilter_reverse_relationships_default_ordering(self):
-        self.addCleanup(setattr, Book._meta, 'ordering', Book._meta.ordering)
-        Book._meta.ordering = ('title',)
-        modeladmin = CustomUserAdmin(User, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [
-            (self.bio_book.pk, 'Django: a biography'),
-            (self.djangonaut_book.pk, 'Djangonaut: an art of living'),
-            (self.guitar_book.pk, 'Guitar for dummies'),
-            (self.django_book.pk, 'The Django Book')
-        ]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
     def test_relatedonlyfieldlistfilter_foreignkey(self):
         modeladmin = BookAdminRelatedOnlyFilter(Book, site)
 
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure that only actual authors are present in author's list filter
         filterspec = changelist.get_filters(request)[0][4]
         expected = [(self.alfred.pk, 'alfred'), (self.bob.pk, 'bob')]
         self.assertEqual(sorted(filterspec.lookup_choices), sorted(expected))
-
-    def test_relatedonlyfieldlistfilter_foreignkey_reverse_relationships(self):
-        class EmployeeAdminReverseRelationship(ModelAdmin):
-            list_filter = (
-                ('book', RelatedOnlyFieldListFilter),
-            )
-
-        self.djangonaut_book.employee = self.john
-        self.djangonaut_book.save()
-        self.django_book.employee = self.jack
-        self.django_book.save()
-
-        modeladmin = EmployeeAdminReverseRelationship(Employee, site)
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        self.assertEqual(filterspec.lookup_choices, [
-            (self.djangonaut_book.pk, 'Djangonaut: an art of living'),
-            (self.django_book.pk, 'The Django Book'),
-        ])
-
-    def test_relatedonlyfieldlistfilter_manytomany_reverse_relationships(self):
-        class UserAdminReverseRelationship(ModelAdmin):
-            list_filter = (
-                ('books_contributed', RelatedOnlyFieldListFilter),
-            )
-
-        modeladmin = UserAdminReverseRelationship(User, site)
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        self.assertEqual(
-            filterspec.lookup_choices,
-            [(self.guitar_book.pk, 'Guitar for dummies')],
-        )
-
-    def test_relatedonlyfieldlistfilter_foreignkey_ordering(self):
-        """RelatedOnlyFieldListFilter ordering respects ModelAdmin.ordering."""
-        class EmployeeAdminWithOrdering(ModelAdmin):
-            ordering = ('name',)
-
-        class BookAdmin(ModelAdmin):
-            list_filter = (
-                ('employee', RelatedOnlyFieldListFilter),
-            )
-
-        albert = Employee.objects.create(name='Albert Green', department=self.dev)
-        self.djangonaut_book.employee = albert
-        self.djangonaut_book.save()
-        self.bio_book.employee = self.jack
-        self.bio_book.save()
-
-        site.register(Employee, EmployeeAdminWithOrdering)
-        self.addCleanup(lambda: site.unregister(Employee))
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(albert.pk, 'Albert Green'), (self.jack.pk, 'Jack Red')]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
-    def test_relatedonlyfieldlistfilter_foreignkey_default_ordering(self):
-        """RelatedOnlyFieldListFilter ordering respects Meta.ordering."""
-        class BookAdmin(ModelAdmin):
-            list_filter = (
-                ('employee', RelatedOnlyFieldListFilter),
-            )
-
-        albert = Employee.objects.create(name='Albert Green', department=self.dev)
-        self.djangonaut_book.employee = albert
-        self.djangonaut_book.save()
-        self.bio_book.employee = self.jack
-        self.bio_book.save()
-
-        self.addCleanup(setattr, Employee._meta, 'ordering', Employee._meta.ordering)
-        Employee._meta.ordering = ('name',)
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(albert.pk, 'Albert Green'), (self.jack.pk, 'Jack Red')]
-        self.assertEqual(filterspec.lookup_choices, expected)
 
     def test_relatedonlyfieldlistfilter_underscorelookup_foreignkey(self):
         Department.objects.create(code='TEST', description='Testing')
@@ -856,7 +644,6 @@ class ListFiltersTests(TestCase):
 
         modeladmin = BookAdminRelatedOnlyFilter(Book, site)
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Only actual departments should be present in employee__department's
@@ -872,7 +659,6 @@ class ListFiltersTests(TestCase):
         modeladmin = BookAdminRelatedOnlyFilter(Book, site)
 
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure that only actual contributors are present in contrib's list filter
@@ -892,7 +678,6 @@ class ListFiltersTests(TestCase):
         modeladmin = BookmarkAdminGenericRelation(Bookmark, site)
 
         request = self.request_factory.get('/', {'tags__tag': 'python'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
         queryset = changelist.get_queryset(request)
 
@@ -909,11 +694,9 @@ class ListFiltersTests(TestCase):
 
     def verify_booleanfieldlistfilter(self, modeladmin):
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         request = self.request_factory.get('/', {'is_best_seller__exact': 0})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -928,7 +711,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choice['query_string'], '?is_best_seller__exact=0')
 
         request = self.request_factory.get('/', {'is_best_seller__exact': 1})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -943,7 +725,6 @@ class ListFiltersTests(TestCase):
         self.assertEqual(choice['query_string'], '?is_best_seller__exact=1')
 
         request = self.request_factory.get('/', {'is_best_seller__isnull': 'True'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -957,115 +738,6 @@ class ListFiltersTests(TestCase):
         self.assertIs(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?is_best_seller__isnull=True')
 
-    def test_booleanfieldlistfilter_choices(self):
-        modeladmin = BookAdmin(Book, site)
-        self.verify_booleanfieldlistfilter_choices(modeladmin)
-
-    def test_booleanfieldlistfilter_tuple_choices(self):
-        modeladmin = BookAdminWithTupleBooleanFilter(Book, site)
-        self.verify_booleanfieldlistfilter_choices(modeladmin)
-
-    def verify_booleanfieldlistfilter_choices(self, modeladmin):
-        # False.
-        request = self.request_factory.get('/', {'availability__exact': 0})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.bio_book])
-        filterspec = changelist.get_filters(request)[0][6]
-        self.assertEqual(filterspec.title, 'availability')
-        choice = select_by(filterspec.choices(changelist), 'display', 'Paid')
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?availability__exact=0')
-        # True.
-        request = self.request_factory.get('/', {'availability__exact': 1})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.django_book, self.djangonaut_book])
-        filterspec = changelist.get_filters(request)[0][6]
-        self.assertEqual(filterspec.title, 'availability')
-        choice = select_by(filterspec.choices(changelist), 'display', 'Free')
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?availability__exact=1')
-        # None.
-        request = self.request_factory.get('/', {'availability__isnull': 'True'})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.guitar_book])
-        filterspec = changelist.get_filters(request)[0][6]
-        self.assertEqual(filterspec.title, 'availability')
-        choice = select_by(filterspec.choices(changelist), 'display', 'Obscure')
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?availability__isnull=True')
-        # All.
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(
-            list(queryset),
-            [self.guitar_book, self.django_book, self.bio_book, self.djangonaut_book],
-        )
-        filterspec = changelist.get_filters(request)[0][6]
-        self.assertEqual(filterspec.title, 'availability')
-        choice = select_by(filterspec.choices(changelist), 'display', 'All')
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?')
-
-    def test_booleanfieldlistfilter_nullbooleanfield(self):
-        modeladmin = BookAdmin2(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-
-        request = self.request_factory.get('/', {'is_best_seller2__exact': 0})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-
-        # Make sure the correct queryset is returned
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.bio_book])
-
-        # Make sure the correct choice is selected
-        filterspec = changelist.get_filters(request)[0][3]
-        self.assertEqual(filterspec.title, 'is best seller2')
-        choice = select_by(filterspec.choices(changelist), "display", "No")
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?is_best_seller2__exact=0')
-
-        request = self.request_factory.get('/', {'is_best_seller2__exact': 1})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-
-        # Make sure the correct queryset is returned
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.guitar_book, self.djangonaut_book])
-
-        # Make sure the correct choice is selected
-        filterspec = changelist.get_filters(request)[0][3]
-        self.assertEqual(filterspec.title, 'is best seller2')
-        choice = select_by(filterspec.choices(changelist), "display", "Yes")
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?is_best_seller2__exact=1')
-
-        request = self.request_factory.get('/', {'is_best_seller2__isnull': 'True'})
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-
-        # Make sure the correct queryset is returned
-        queryset = changelist.get_queryset(request)
-        self.assertEqual(list(queryset), [self.django_book])
-
-        # Make sure the correct choice is selected
-        filterspec = changelist.get_filters(request)[0][3]
-        self.assertEqual(filterspec.title, 'is best seller2')
-        choice = select_by(filterspec.choices(changelist), "display", "Unknown")
-        self.assertIs(choice['selected'], True)
-        self.assertEqual(choice['query_string'], '?is_best_seller2__isnull=True')
-
     def test_fieldlistfilter_underscorelookup_tuple(self):
         """
         Ensure ('fieldpath', ClassName ) lookups pass lookup_allowed checks
@@ -1073,11 +745,9 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = BookAdminWithUnderscoreLookupAndTuple(Book, site)
         request = self.request_factory.get('/')
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         request = self.request_factory.get('/', {'author__email': 'alfred@example.com'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1088,7 +758,6 @@ class ListFiltersTests(TestCase):
         """Filtering by an invalid value."""
         modeladmin = BookAdmin(Book, site)
         request = self.request_factory.get('/', {'author__id__exact': 'StringNotInteger!'})
-        request.user = self.alfred
         with self.assertRaises(IncorrectLookupParameters):
             modeladmin.get_changelist_instance(request)
 
@@ -1097,7 +766,6 @@ class ListFiltersTests(TestCase):
 
         # Make sure that the first option is 'All' ---------------------------
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1114,7 +782,6 @@ class ListFiltersTests(TestCase):
 
         # Look for books in the 1980s ----------------------------------------
         request = self.request_factory.get('/', {'publication-decade': 'the 80s'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1131,7 +798,6 @@ class ListFiltersTests(TestCase):
 
         # Look for books in the 1990s ----------------------------------------
         request = self.request_factory.get('/', {'publication-decade': 'the 90s'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1148,7 +814,6 @@ class ListFiltersTests(TestCase):
 
         # Look for books in the 2000s ----------------------------------------
         request = self.request_factory.get('/', {'publication-decade': 'the 00s'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1165,7 +830,6 @@ class ListFiltersTests(TestCase):
 
         # Combine multiple filters -------------------------------------------
         request = self.request_factory.get('/', {'publication-decade': 'the 00s', 'author__id__exact': self.alfred.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1195,7 +859,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DecadeFilterBookAdminWithoutTitle(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         msg = "The list filter 'DecadeListFilterWithoutTitle' does not specify a 'title'."
         with self.assertRaisesMessage(ImproperlyConfigured, msg):
             modeladmin.get_changelist_instance(request)
@@ -1206,7 +869,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DecadeFilterBookAdminWithoutParameter(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         msg = "The list filter 'DecadeListFilterWithoutParameter' does not specify a 'parameter_name'."
         with self.assertRaisesMessage(ImproperlyConfigured, msg):
             modeladmin.get_changelist_instance(request)
@@ -1218,7 +880,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DecadeFilterBookAdminWithNoneReturningLookups(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
         filterspec = changelist.get_filters(request)[0]
         self.assertEqual(len(filterspec), 0)
@@ -1230,14 +891,12 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DecadeFilterBookAdminWithFailingQueryset(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         with self.assertRaises(ZeroDivisionError):
             modeladmin.get_changelist_instance(request)
 
     def test_simplelistfilter_with_queryset_based_lookups(self):
         modeladmin = DecadeFilterBookAdminWithQuerysetBasedLookups(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         filterspec = changelist.get_filters(request)[0][0]
@@ -1263,14 +922,13 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = BookAdmin(Book, site)
         request = self.request_factory.get('/', {'no': '207'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
         queryset = changelist.get_queryset(request)
         self.assertEqual(list(queryset), [self.bio_book])
 
-        filterspec = changelist.get_filters(request)[0][5]
+        filterspec = changelist.get_filters(request)[0][-1]
         self.assertEqual(filterspec.title, 'number')
         choices = list(filterspec.choices(changelist))
         self.assertIs(choices[2]['selected'], True)
@@ -1284,7 +942,6 @@ class ListFiltersTests(TestCase):
         # When it ends with '__in' -----------------------------------------
         modeladmin = DecadeFilterBookAdminParameterEndsWith__In(Book, site)
         request = self.request_factory.get('/', {'decade__in': 'the 90s'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1302,7 +959,6 @@ class ListFiltersTests(TestCase):
         # When it ends with '__isnull' ---------------------------------------
         modeladmin = DecadeFilterBookAdminParameterEndsWith__Isnull(Book, site)
         request = self.request_factory.get('/', {'decade__isnull': 'the 90s'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1324,7 +980,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DepartmentFilterEmployeeAdmin(Employee, site)
         request = self.request_factory.get('/', {'department': self.john.department.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         queryset = changelist.get_queryset(request)
@@ -1345,7 +1000,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = DepartmentFilterUnderscoredEmployeeAdmin(Employee, site)
         request = self.request_factory.get('/', {'department__whatever': self.john.department.pk})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         queryset = changelist.get_queryset(request)
@@ -1366,7 +1020,6 @@ class ListFiltersTests(TestCase):
         modeladmin = EmployeeAdmin(Employee, site)
 
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1392,7 +1045,6 @@ class ListFiltersTests(TestCase):
         # Filter by Department=='Development' --------------------------------
 
         request = self.request_factory.get('/', {'department__code__exact': 'DEV'})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
         # Make sure the correct queryset is returned
@@ -1422,7 +1074,6 @@ class ListFiltersTests(TestCase):
         modeladmin = DepartmentFilterDynamicValueBookAdmin(Book, site)
 
         def _test_choices(request, expected_displays):
-            request.user = self.alfred
             changelist = modeladmin.get_changelist_instance(request)
             filterspec = changelist.get_filters(request)[0][0]
             self.assertEqual(filterspec.title, 'publication decade')
@@ -1445,161 +1096,6 @@ class ListFiltersTests(TestCase):
         """
         modeladmin = NotNinetiesListFilterAdmin(Book, site)
         request = self.request_factory.get('/', {})
-        request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
         changelist.get_results(request)
         self.assertEqual(changelist.full_result_count, 4)
-
-    def test_emptylistfieldfilter(self):
-        empty_description = Department.objects.create(code='EMPT', description='')
-        none_description = Department.objects.create(code='NONE', description=None)
-        empty_title = Book.objects.create(title='', author=self.alfred)
-
-        department_admin = DepartmentAdminWithEmptyFieldListFilter(Department, site)
-        book_admin = BookAdminWithEmptyFieldListFilter(Book, site)
-
-        tests = [
-            # Allows nulls and empty strings.
-            (
-                department_admin,
-                {'description__isempty': '1'},
-                [empty_description, none_description],
-            ),
-            (
-                department_admin,
-                {'description__isempty': '0'},
-                [self.dev, self.design],
-            ),
-            # Allows nulls.
-            (book_admin, {'author__isempty': '1'}, [self.guitar_book]),
-            (
-                book_admin,
-                {'author__isempty': '0'},
-                [self.django_book, self.bio_book, self.djangonaut_book, empty_title],
-            ),
-            # Allows empty strings.
-            (book_admin, {'title__isempty': '1'}, [empty_title]),
-            (
-                book_admin,
-                {'title__isempty': '0'},
-                [self.django_book, self.bio_book, self.djangonaut_book, self.guitar_book],
-            ),
-        ]
-        for modeladmin, query_string, expected_result in tests:
-            with self.subTest(
-                modeladmin=modeladmin.__class__.__name__,
-                query_string=query_string,
-            ):
-                request = self.request_factory.get('/', query_string)
-                request.user = self.alfred
-                changelist = modeladmin.get_changelist_instance(request)
-                queryset = changelist.get_queryset(request)
-                self.assertCountEqual(queryset, expected_result)
-
-    def test_emptylistfieldfilter_reverse_relationships(self):
-        class UserAdminReverseRelationship(UserAdmin):
-            list_filter = (
-                ('books_contributed', EmptyFieldListFilter),
-            )
-
-        ImprovedBook.objects.create(book=self.guitar_book)
-        no_employees = Department.objects.create(code='NONE', description=None)
-
-        book_admin = BookAdminWithEmptyFieldListFilter(Book, site)
-        department_admin = DepartmentAdminWithEmptyFieldListFilter(Department, site)
-        user_admin = UserAdminReverseRelationship(User, site)
-
-        tests = [
-            # Reverse one-to-one relationship.
-            (
-                book_admin,
-                {'improvedbook__isempty': '1'},
-                [self.django_book, self.bio_book, self.djangonaut_book],
-            ),
-            (book_admin, {'improvedbook__isempty': '0'}, [self.guitar_book]),
-            # Reverse foreign key relationship.
-            (department_admin, {'employee__isempty': '1'}, [no_employees]),
-            (department_admin, {'employee__isempty': '0'}, [self.dev, self.design]),
-            # Reverse many-to-many relationship.
-            (user_admin, {'books_contributed__isempty': '1'}, [self.alfred]),
-            (user_admin, {'books_contributed__isempty': '0'}, [self.bob, self.lisa]),
-        ]
-        for modeladmin, query_string, expected_result in tests:
-            with self.subTest(
-                modeladmin=modeladmin.__class__.__name__,
-                query_string=query_string,
-            ):
-                request = self.request_factory.get('/', query_string)
-                request.user = self.alfred
-                changelist = modeladmin.get_changelist_instance(request)
-                queryset = changelist.get_queryset(request)
-                self.assertCountEqual(queryset, expected_result)
-
-    def test_emptylistfieldfilter_genericrelation(self):
-        class BookmarkGenericRelation(ModelAdmin):
-            list_filter = (
-                ('tags', EmptyFieldListFilter),
-            )
-
-        modeladmin = BookmarkGenericRelation(Bookmark, site)
-
-        django_bookmark = Bookmark.objects.create(url='https://www.djangoproject.com/')
-        python_bookmark = Bookmark.objects.create(url='https://www.python.org/')
-        none_tags = Bookmark.objects.create(url='https://www.kernel.org/')
-        TaggedItem.objects.create(content_object=django_bookmark, tag='python')
-        TaggedItem.objects.create(content_object=python_bookmark, tag='python')
-
-        tests = [
-            ({'tags__isempty': '1'}, [none_tags]),
-            ({'tags__isempty': '0'}, [django_bookmark, python_bookmark]),
-        ]
-        for query_string, expected_result in tests:
-            with self.subTest(query_string=query_string):
-                request = self.request_factory.get('/', query_string)
-                request.user = self.alfred
-                changelist = modeladmin.get_changelist_instance(request)
-                queryset = changelist.get_queryset(request)
-                self.assertCountEqual(queryset, expected_result)
-
-    def test_emptylistfieldfilter_choices(self):
-        modeladmin = BookAdminWithEmptyFieldListFilter(Book, site)
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        self.assertEqual(filterspec.title, 'Verbose Author')
-        choices = list(filterspec.choices(changelist))
-        self.assertEqual(len(choices), 3)
-
-        self.assertEqual(choices[0]['display'], 'All')
-        self.assertIs(choices[0]['selected'], True)
-        self.assertEqual(choices[0]['query_string'], '?')
-
-        self.assertEqual(choices[1]['display'], 'Empty')
-        self.assertIs(choices[1]['selected'], False)
-        self.assertEqual(choices[1]['query_string'], '?author__isempty=1')
-
-        self.assertEqual(choices[2]['display'], 'Not empty')
-        self.assertIs(choices[2]['selected'], False)
-        self.assertEqual(choices[2]['query_string'], '?author__isempty=0')
-
-    def test_emptylistfieldfilter_non_empty_field(self):
-        class EmployeeAdminWithEmptyFieldListFilter(ModelAdmin):
-            list_filter = [('department', EmptyFieldListFilter)]
-
-        modeladmin = EmployeeAdminWithEmptyFieldListFilter(Employee, site)
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        msg = (
-            "The list filter 'EmptyFieldListFilter' cannot be used with field "
-            "'department' which doesn't allow empty strings and nulls."
-        )
-        with self.assertRaisesMessage(ImproperlyConfigured, msg):
-            modeladmin.get_changelist_instance(request)
-
-    def test_emptylistfieldfilter_invalid_lookup_parameters(self):
-        modeladmin = BookAdminWithEmptyFieldListFilter(Book, site)
-        request = self.request_factory.get('/', {'author__isempty': 42})
-        request.user = self.alfred
-        with self.assertRaises(IncorrectLookupParameters):
-            modeladmin.get_changelist_instance(request)

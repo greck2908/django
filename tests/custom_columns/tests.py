@@ -6,14 +6,13 @@ from .models import Article, Author
 
 class CustomColumnsTests(TestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.a1 = Author.objects.create(first_name="John", last_name="Smith")
-        cls.a2 = Author.objects.create(first_name="Peter", last_name="Jones")
-        cls.authors = [cls.a1, cls.a2]
+    def setUp(self):
+        self.a1 = Author.objects.create(first_name="John", last_name="Smith")
+        self.a2 = Author.objects.create(first_name="Peter", last_name="Jones")
+        self.authors = [self.a1, self.a2]
 
-        cls.article = Article.objects.create(headline="Django lets you build Web apps easily", primary_author=cls.a1)
-        cls.article.authors.set(cls.authors)
+        self.article = Article.objects.create(headline="Django lets you build Web apps easily", primary_author=self.a1)
+        self.article.authors.set(self.authors)
 
     def test_query_all_available_authors(self):
         self.assertQuerysetEqual(
@@ -78,15 +77,15 @@ class CustomColumnsTests(TestCase):
         )
 
     def test_author_querying(self):
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
             Author.objects.all().order_by('last_name'),
-            [self.a2, self.a1],
+            ['<Author: Peter Jones>', '<Author: John Smith>']
         )
 
     def test_author_filtering(self):
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
             Author.objects.filter(first_name__exact='John'),
-            [self.a1],
+            ['<Author: John Smith>']
         )
 
     def test_author_get(self):
@@ -111,12 +110,15 @@ class CustomColumnsTests(TestCase):
             getattr(a, 'last')
 
     def test_m2m_table(self):
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
             self.article.authors.all().order_by('last_name'),
-            [self.a2, self.a1],
+            ['<Author: Peter Jones>', '<Author: John Smith>']
         )
-        self.assertSequenceEqual(self.a1.article_set.all(), [self.article])
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
+            self.a1.article_set.all(),
+            ['<Article: Django lets you build Web apps easily>']
+        )
+        self.assertQuerysetEqual(
             self.article.authors.filter(last_name='Jones'),
-            [self.a2],
+            ['<Author: Peter Jones>']
         )

@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 
 from django.conf import settings
-from django.contrib.staticfiles.storage import ManifestStaticFilesStorage
+from django.contrib.staticfiles.storage import CachedStaticFilesStorage
 from django.core.files import storage
 from django.utils import timezone
 
@@ -39,11 +39,11 @@ class PathNotImplementedStorage(storage.Storage):
     def listdir(self, path):
         path = self._path(path)
         directories, files = [], []
-        for entry in os.scandir(path):
-            if entry.is_dir():
-                directories.append(entry.name)
+        for entry in os.listdir(path):
+            if os.path.isdir(os.path.join(path, entry)):
+                directories.append(entry)
             else:
-                files.append(entry.name)
+                files.append(entry)
         return directories, files
 
     def delete(self, name):
@@ -70,26 +70,21 @@ class QueryStringStorage(storage.Storage):
         return path + '?a=b&c=d'
 
 
-class SimpleStorage(ManifestStaticFilesStorage):
+class SimpleCachedStaticFilesStorage(CachedStaticFilesStorage):
 
     def file_hash(self, name, content=None):
         return 'deploy12345'
 
 
-class ExtraPatternsStorage(ManifestStaticFilesStorage):
+class ExtraPatternsCachedStaticFilesStorage(CachedStaticFilesStorage):
     """
     A storage class to test pattern substitutions with more than one pattern
     entry. The added pattern rewrites strings like "url(...)" to JS_URL("...").
     """
-    patterns = tuple(ManifestStaticFilesStorage.patterns) + (
+    patterns = tuple(CachedStaticFilesStorage.patterns) + (
         (
             "*.js", (
                 (r"""(url\(['"]{0,1}\s*(.*?)["']{0,1}\))""", 'JS_URL("%s")'),
             ),
         ),
     )
-
-
-class NoneHashStorage(ManifestStaticFilesStorage):
-    def file_hash(self, name, content=None):
-        return None

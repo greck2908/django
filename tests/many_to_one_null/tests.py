@@ -4,23 +4,22 @@ from .models import Article, Car, Driver, Reporter
 
 
 class ManyToOneNullTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         # Create a Reporter.
-        cls.r = Reporter(name='John Smith')
-        cls.r.save()
+        self.r = Reporter(name='John Smith')
+        self.r.save()
         # Create an Article.
-        cls.a = Article(headline='First', reporter=cls.r)
-        cls.a.save()
+        self.a = Article(headline="First", reporter=self.r)
+        self.a.save()
         # Create an Article via the Reporter object.
-        cls.a2 = cls.r.article_set.create(headline='Second')
+        self.a2 = self.r.article_set.create(headline="Second")
         # Create an Article with no Reporter by passing "reporter=None".
-        cls.a3 = Article(headline='Third', reporter=None)
-        cls.a3.save()
+        self.a3 = Article(headline="Third", reporter=None)
+        self.a3.save()
         # Create another article and reporter
-        cls.r2 = Reporter(name='Paul Jones')
-        cls.r2.save()
-        cls.a4 = cls.r2.article_set.create(headline='Fourth')
+        self.r2 = Reporter(name='Paul Jones')
+        self.r2.save()
+        self.a4 = self.r2.article_set.create(headline='Fourth')
 
     def test_get_related(self):
         self.assertEqual(self.a.reporter.id, self.r.id)
@@ -33,8 +32,8 @@ class ManyToOneNullTests(TestCase):
 
     def test_related_set(self):
         # Reporter objects have access to their related Article objects.
-        self.assertSequenceEqual(self.r.article_set.all(), [self.a, self.a2])
-        self.assertSequenceEqual(self.r.article_set.filter(headline__startswith='Fir'), [self.a])
+        self.assertQuerysetEqual(self.r.article_set.all(), ['<Article: First>', '<Article: Second>'])
+        self.assertQuerysetEqual(self.r.article_set.filter(headline__startswith='Fir'), ['<Article: First>'])
         self.assertEqual(self.r.article_set.count(), 2)
 
     def test_created_without_related(self):
@@ -47,62 +46,57 @@ class ManyToOneNullTests(TestCase):
         # if the reporter is set to None.
         self.assertIsNone(a3.reporter)
         # To retrieve the articles with no reporters set, use "reporter__isnull=True".
-        self.assertSequenceEqual(Article.objects.filter(reporter__isnull=True), [self.a3])
+        self.assertQuerysetEqual(Article.objects.filter(reporter__isnull=True), ['<Article: Third>'])
         # We can achieve the same thing by filtering for the case where the
         # reporter is None.
-        self.assertSequenceEqual(Article.objects.filter(reporter=None), [self.a3])
+        self.assertQuerysetEqual(Article.objects.filter(reporter=None), ['<Article: Third>'])
         # Set the reporter for the Third article
-        self.assertSequenceEqual(self.r.article_set.all(), [self.a, self.a2])
+        self.assertQuerysetEqual(self.r.article_set.all(), ['<Article: First>', '<Article: Second>'])
         self.r.article_set.add(a3)
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
             self.r.article_set.all(),
-            [self.a, self.a2, self.a3],
+            ['<Article: First>', '<Article: Second>', '<Article: Third>']
         )
         # Remove an article from the set, and check that it was removed.
         self.r.article_set.remove(a3)
-        self.assertSequenceEqual(self.r.article_set.all(), [self.a, self.a2])
-        self.assertSequenceEqual(Article.objects.filter(reporter__isnull=True), [self.a3])
+        self.assertQuerysetEqual(self.r.article_set.all(), ['<Article: First>', '<Article: Second>'])
+        self.assertQuerysetEqual(Article.objects.filter(reporter__isnull=True), ['<Article: Third>'])
 
     def test_remove_from_wrong_set(self):
-        self.assertSequenceEqual(self.r2.article_set.all(), [self.a4])
+        self.assertQuerysetEqual(self.r2.article_set.all(), ['<Article: Fourth>'])
         # Try to remove a4 from a set it does not belong to
         with self.assertRaises(Reporter.DoesNotExist):
             self.r.article_set.remove(self.a4)
-        self.assertSequenceEqual(self.r2.article_set.all(), [self.a4])
+        self.assertQuerysetEqual(self.r2.article_set.all(), ['<Article: Fourth>'])
 
     def test_set(self):
         # Use manager.set() to allocate ForeignKey. Null is legal, so existing
         # members of the set that are not in the assignment set are set to null.
         self.r2.article_set.set([self.a2, self.a3])
-        self.assertSequenceEqual(self.r2.article_set.all(), [self.a2, self.a3])
+        self.assertQuerysetEqual(self.r2.article_set.all(), ['<Article: Second>', '<Article: Third>'])
         # Use manager.set(clear=True)
         self.r2.article_set.set([self.a3, self.a4], clear=True)
-        self.assertSequenceEqual(self.r2.article_set.all(), [self.a4, self.a3])
+        self.assertQuerysetEqual(self.r2.article_set.all(), ['<Article: Fourth>', '<Article: Third>'])
         # Clear the rest of the set
         self.r2.article_set.set([])
-        self.assertSequenceEqual(self.r2.article_set.all(), [])
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(self.r2.article_set.all(), [])
+        self.assertQuerysetEqual(
             Article.objects.filter(reporter__isnull=True),
-            [self.a4, self.a2, self.a3],
+            ['<Article: Fourth>', '<Article: Second>', '<Article: Third>']
         )
-
-    def test_set_clear_non_bulk(self):
-        # 2 queries for clear(), 1 for add(), and 1 to select objects.
-        with self.assertNumQueries(4):
-            self.r.article_set.set([self.a], bulk=False, clear=True)
 
     def test_assign_clear_related_set(self):
         # Use descriptor assignment to allocate ForeignKey. Null is legal, so
         # existing members of the set that are not in the assignment set are
         # set to null.
         self.r2.article_set.set([self.a2, self.a3])
-        self.assertSequenceEqual(self.r2.article_set.all(), [self.a2, self.a3])
+        self.assertQuerysetEqual(self.r2.article_set.all(), ['<Article: Second>', '<Article: Third>'])
         # Clear the rest of the set
         self.r.article_set.clear()
-        self.assertSequenceEqual(self.r.article_set.all(), [])
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(self.r.article_set.all(), [])
+        self.assertQuerysetEqual(
             Article.objects.filter(reporter__isnull=True),
-            [self.a, self.a4],
+            ['<Article: First>', '<Article: Fourth>']
         )
 
     def test_assign_with_queryset(self):

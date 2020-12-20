@@ -3,6 +3,7 @@ from django.contrib.contenttypes.fields import (
 )
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models.deletion import ProtectedError
 
 __all__ = ('Link', 'Place', 'Restaurant', 'Person', 'Address',
            'CharLink', 'TextLink', 'OddRelation1', 'OddRelation2',
@@ -14,6 +15,9 @@ class Link(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey()
 
+    def __str__(self):
+        return "Link to %s id=%s" % (self.content_type, self.object_id)
+
 
 class LinkProxy(Link):
     class Meta:
@@ -22,16 +26,21 @@ class LinkProxy(Link):
 
 class Place(models.Model):
     name = models.CharField(max_length=100)
-    links = GenericRelation(Link, related_query_name='places')
+    links = GenericRelation(Link)
     link_proxy = GenericRelation(LinkProxy)
+
+    def __str__(self):
+        return "Place: %s" % self.name
 
 
 class Restaurant(Place):
-    pass
+    def __str__(self):
+        return "Restaurant: %s" % self.name
 
 
 class Cafe(Restaurant):
-    pass
+    def __str__(self):
+        return "Cafe: %s" % self.name
 
 
 class Address(models.Model):
@@ -43,11 +52,17 @@ class Address(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey()
 
+    def __str__(self):
+        return '%s %s, %s %s' % (self.street, self.city, self.state, self.zipcode)
+
 
 class Person(models.Model):
     account = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=128)
     addresses = GenericRelation(Address)
+
+    def __str__(self):
+        return self.name
 
 
 class CharLink(models.Model):
@@ -93,6 +108,9 @@ class Company(models.Model):
     name = models.CharField(max_length=100)
     links = GenericRelation(Link)
 
+    def __str__(self):
+        return "Company: %s" % self.name
+
 
 # For testing #13085 fix, we also use Note model defined above
 class Developer(models.Model):
@@ -102,6 +120,9 @@ class Developer(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=15)
     members = models.ManyToManyField(Developer)
+
+    def __str__(self):
+        return "%s team" % self.name
 
     def __len__(self):
         return self.members.count()
@@ -123,7 +144,7 @@ class Tag(models.Model):
 
 
 class Board(models.Model):
-    name = models.CharField(primary_key=True, max_length=25)
+    name = models.CharField(primary_key=True, max_length=15)
 
 
 class SpecialGenericRelation(GenericRelation):
@@ -137,7 +158,7 @@ class SpecialGenericRelation(GenericRelation):
 
 
 class HasLinks(models.Model):
-    links = SpecialGenericRelation(Link, related_query_name='targets')
+    links = SpecialGenericRelation(Link)
 
     class Meta:
         abstract = True
@@ -148,7 +169,7 @@ class HasLinkThing(HasLinks):
 
 
 class A(models.Model):
-    flag = models.BooleanField(null=True)
+    flag = models.NullBooleanField()
     content_type = models.ForeignKey(ContentType, models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -193,7 +214,7 @@ class Related(models.Model):
 
 
 def prevent_deletes(sender, instance, **kwargs):
-    raise models.ProtectedError("Not allowed to delete.", [instance])
+    raise ProtectedError("Not allowed to delete.", [instance])
 
 
 models.signals.pre_delete.connect(prevent_deletes, sender=Node)

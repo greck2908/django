@@ -32,31 +32,89 @@ class M2MThroughTestCase(TestCase):
         cls.jane_rock = UserMembership.objects.create(user=cls.jane, group=cls.rock)
 
     def test_retrieve_reverse_m2m_items(self):
-        self.assertCountEqual(self.bob.group_set.all(), [self.rock, self.roll])
+        self.assertQuerysetEqual(
+            self.bob.group_set.all(), [
+                "<Group: Rock>",
+                "<Group: Roll>",
+            ],
+            ordered=False
+        )
 
     def test_retrieve_forward_m2m_items(self):
-        self.assertSequenceEqual(self.roll.members.all(), [self.bob])
+        self.assertQuerysetEqual(
+            self.roll.members.all(), [
+                "<Person: Bob>",
+            ]
+        )
+
+    def test_cannot_use_setattr_on_reverse_m2m_with_intermediary_model(self):
+        msg = (
+            "Cannot set values on a ManyToManyField which specifies an "
+            "intermediary model. Use m2m_through_regress.Membership's Manager "
+            "instead."
+        )
+        with self.assertRaisesMessage(AttributeError, msg):
+            self.bob.group_set.set([])
+
+    def test_cannot_use_setattr_on_forward_m2m_with_intermediary_model(self):
+        msg = (
+            "Cannot set values on a ManyToManyField which specifies an "
+            "intermediary model. Use m2m_through_regress.Membership's Manager "
+            "instead."
+        )
+        with self.assertRaisesMessage(AttributeError, msg):
+            self.roll.members.set([])
+
+    def test_cannot_use_create_on_m2m_with_intermediary_model(self):
+        msg = (
+            "Cannot use create() on a ManyToManyField which specifies an "
+            "intermediary model. Use m2m_through_regress.Membership's "
+            "Manager instead."
+        )
+        with self.assertRaisesMessage(AttributeError, msg):
+            self.rock.members.create(name="Anne")
+
+    def test_cannot_use_create_on_reverse_m2m_with_intermediary_model(self):
+        msg = (
+            "Cannot use create() on a ManyToManyField which specifies an "
+            "intermediary model. Use m2m_through_regress.Membership's "
+            "Manager instead."
+        )
+        with self.assertRaisesMessage(AttributeError, msg):
+            self.bob.group_set.create(name="Funk")
 
     def test_retrieve_reverse_m2m_items_via_custom_id_intermediary(self):
-        self.assertCountEqual(self.frank.group_set.all(), [self.rock, self.roll])
+        self.assertQuerysetEqual(
+            self.frank.group_set.all(), [
+                "<Group: Rock>",
+                "<Group: Roll>",
+            ],
+            ordered=False
+        )
 
     def test_retrieve_forward_m2m_items_via_custom_id_intermediary(self):
-        self.assertSequenceEqual(self.roll.user_members.all(), [self.frank])
+        self.assertQuerysetEqual(
+            self.roll.user_members.all(), [
+                "<User: frank>",
+            ]
+        )
 
     def test_join_trimming_forwards(self):
         """
         Too many copies of the intermediate table aren't involved when doing a
         join (#8046, #8254).
         """
-        self.assertSequenceEqual(
-            self.rock.members.filter(membership__price=50),
-            [self.jim],
+        self.assertQuerysetEqual(
+            self.rock.members.filter(membership__price=50), [
+                "<Person: Jim>",
+            ]
         )
 
     def test_join_trimming_reverse(self):
-        self.assertSequenceEqual(
-            self.bob.group_set.filter(membership__price=50),
-            [self.roll],
+        self.assertQuerysetEqual(
+            self.bob.group_set.filter(membership__price=50), [
+                "<Group: Roll>",
+            ]
         )
 
 
@@ -102,33 +160,40 @@ class M2MThroughSerializationTestCase(TestCase):
 
 
 class ToFieldThroughTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.car = Car.objects.create(make="Toyota")
-        cls.driver = Driver.objects.create(name="Ryan Briscoe")
-        CarDriver.objects.create(car=cls.car, driver=cls.driver)
+    def setUp(self):
+        self.car = Car.objects.create(make="Toyota")
+        self.driver = Driver.objects.create(name="Ryan Briscoe")
+        CarDriver.objects.create(car=self.car, driver=self.driver)
         # We are testing if wrong objects get deleted due to using wrong
         # field value in m2m queries. So, it is essential that the pk
         # numberings do not match.
         # Create one intentionally unused driver to mix up the autonumbering
-        cls.unused_driver = Driver.objects.create(name="Barney Gumble")
+        self.unused_driver = Driver.objects.create(name="Barney Gumble")
         # And two intentionally unused cars.
-        cls.unused_car1 = Car.objects.create(make="Trabant")
-        cls.unused_car2 = Car.objects.create(make="Wartburg")
+        self.unused_car1 = Car.objects.create(make="Trabant")
+        self.unused_car2 = Car.objects.create(make="Wartburg")
 
     def test_to_field(self):
-        self.assertSequenceEqual(self.car.drivers.all(), [self.driver])
+        self.assertQuerysetEqual(
+            self.car.drivers.all(),
+            ["<Driver: Ryan Briscoe>"]
+        )
 
     def test_to_field_reverse(self):
-        self.assertSequenceEqual(self.driver.car_set.all(), [self.car])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(),
+            ["<Car: Toyota>"]
+        )
 
     def test_to_field_clear_reverse(self):
         self.driver.car_set.clear()
-        self.assertSequenceEqual(self.driver.car_set.all(), [])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(), [])
 
     def test_to_field_clear(self):
         self.car.drivers.clear()
-        self.assertSequenceEqual(self.car.drivers.all(), [])
+        self.assertQuerysetEqual(
+            self.car.drivers.all(), [])
 
     # Low level tests for _add_items and _remove_items. We test these methods
     # because .add/.remove aren't available for m2m fields with through, but
@@ -136,12 +201,15 @@ class ToFieldThroughTests(TestCase):
     # sure these methods are ready if the ability to use .add or .remove with
     # to_field relations is added some day.
     def test_add(self):
-        self.assertSequenceEqual(self.car.drivers.all(), [self.driver])
+        self.assertQuerysetEqual(
+            self.car.drivers.all(),
+            ["<Driver: Ryan Briscoe>"]
+        )
         # Yikes - barney is going to drive...
         self.car.drivers._add_items('car', 'driver', self.unused_driver)
-        self.assertSequenceEqual(
+        self.assertQuerysetEqual(
             self.car.drivers.all(),
-            [self.unused_driver, self.driver],
+            ["<Driver: Barney Gumble>", "<Driver: Ryan Briscoe>"]
         )
 
     def test_m2m_relations_unusable_on_null_to_field(self):
@@ -169,9 +237,16 @@ class ToFieldThroughTests(TestCase):
 
     def test_add_reverse(self):
         car2 = Car.objects.create(make="Honda")
-        self.assertCountEqual(self.driver.car_set.all(), [self.car])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(),
+            ["<Car: Toyota>"]
+        )
         self.driver.car_set._add_items('driver', 'car', car2)
-        self.assertCountEqual(self.driver.car_set.all(), [self.car, car2])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(),
+            ["<Car: Toyota>", "<Car: Honda>"],
+            ordered=False
+        )
 
     def test_add_null_reverse(self):
         nullcar = Car.objects.create(make=None)
@@ -189,14 +264,22 @@ class ToFieldThroughTests(TestCase):
             nulldriver.car_set._add_items('driver', 'car', self.car)
 
     def test_remove(self):
-        self.assertSequenceEqual(self.car.drivers.all(), [self.driver])
+        self.assertQuerysetEqual(
+            self.car.drivers.all(),
+            ["<Driver: Ryan Briscoe>"]
+        )
         self.car.drivers._remove_items('car', 'driver', self.driver)
-        self.assertSequenceEqual(self.car.drivers.all(), [])
+        self.assertQuerysetEqual(
+            self.car.drivers.all(), [])
 
     def test_remove_reverse(self):
-        self.assertSequenceEqual(self.driver.car_set.all(), [self.car])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(),
+            ["<Car: Toyota>"]
+        )
         self.driver.car_set._remove_items('driver', 'car', self.car)
-        self.assertSequenceEqual(self.driver.car_set.all(), [])
+        self.assertQuerysetEqual(
+            self.driver.car_set.all(), [])
 
 
 class ThroughLoadDataTestCase(TestCase):
